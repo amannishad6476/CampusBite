@@ -345,3 +345,31 @@ To maintain sub-second search and loading times across multiple campuses, we def
 3. **Item Filtering**: `idx_food_items_shop` (B-tree) on `food_items(shop_id)` and `idx_food_items_category` on `food_items(category_id)` for generating menus.
 4. **Order Tracking**: `idx_orders_student` on `orders(student_id)`, `idx_orders_shop` on `orders(shop_id)`, and `idx_orders_delivery` on `orders(delivery_partner_id)` for instant order dashboard lists.
 5. **Coupons Verification**: `idx_coupons_code` (B-tree) on `coupons(code)` for validating checkouts.
+
+---
+
+## 4. Database Migrations (Alembic)
+
+Database schema updates are managed using Alembic. 
+
+### Configuration Setup
+The migrations configuration loads the database connection URL dynamically from settings inside `backend/alembic/env.py`.
+
+### Useful Migration Commands
+* **Initialize migrations folder (run once)**:
+  ```bash
+  alembic init alembic
+  ```
+* **Generate a new migration script automatically**:
+  ```bash
+  alembic revision --autogenerate -m "Add core database schema"
+  ```
+* **Apply all pending migrations to the database**:
+  ```bash
+  alembic upgrade head
+  ```
+* **Revert the last applied migration**:
+  ```bash
+  alembic downgrade -1
+  ```
+

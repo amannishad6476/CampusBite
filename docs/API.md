@@ -288,3 +288,52 @@ All resources are served relative to the API gateway v1 base URL:
   "campus_id": 1
 }
 ```
+
+---
+
+## 6. Security & Global Error Handling
+
+### 6.1 Authentication Header
+All authenticated requests must include the JWT token in the `Authorization` header:
+```http
+Authorization: Bearer <JWT_ACCESS_TOKEN>
+```
+
+### 6.2 Standard Error Response Payload
+When validation fails, or when a request encounters an authentication/authorization error, the gateway returns a standard error format:
+
+* **Validation Error (HTTP 422 Unprocessable Entity)**:
+```json
+{
+  "detail": "Input validation error",
+  "errors": [
+    {
+      "loc": ["body", "email"],
+      "msg": "value is not a valid email address",
+      "type": "value_error.email"
+    }
+  ]
+}
+```
+
+* **Authentication Error (HTTP 401 Unauthorized)**:
+```json
+{
+  "detail": "Could not validate credentials"
+}
+```
+
+* **Authorization Error (HTTP 403 Forbidden)**:
+```json
+{
+  "detail": "Action forbidden: Insufficient permissions"
+}
+```
+
+* **Database/Internal Error (HTTP 500 Internal Server Error)**:
+```json
+{
+  "detail": "Database connection or transaction failure. Action aborted."
+}
+```
+

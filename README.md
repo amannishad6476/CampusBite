@@ -66,3 +66,45 @@ For more in-depth blueprints of the system, please refer to:
 * [Architecture Guide](file:///d:/CampusBite/docs/ARCHITECTURE.md)
 * [Database Schema and Indexing Specs](file:///d:/CampusBite/docs/DATABASE.md)
 * [API Routes and Payload Structures](file:///d:/CampusBite/docs/API.md)
+
+---
+
+## 🛠️ Local Development Setup (Backend)
+
+### 1. Install Dependencies
+Ensure you have Python 3.10+ installed. Navigate to the `backend/` folder and run:
+```bash
+cd backend
+pip install -r requirements.txt
+```
+
+### 2. Configure Environment Variables
+Create a `.env` file in the `backend/` directory by copying `.env.example`:
+```bash
+cp .env.example .env
+```
+Update the `DATABASE_URL` with your local PostgreSQL credentials.
+
+### 3. Database Migrations
+Generate and run migrations to create tables automatically:
+```bash
+# Create migration script
+alembic revision --autogenerate -m "Add core database schema"
+
+# Apply migrations
+alembic upgrade head
+```
+
+### 4. Run the API Server
+Start the development server:
+```bash
+uvicorn app.main:app --reload
+```
+The API docs will be available at `http://127.0.0.1:8000/docs` (Swagger UI).
+
+### 5. Running Tests
+Run the test suite using `pytest` inside the `backend/` folder:
+```bash
+pytest
+```
+
