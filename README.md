@@ -156,5 +156,30 @@ Verify that there are no TypeScript syntax or compile errors:
 npx tsc --noEmit
 ```
 
+---
+
+## 📱 Local Development Setup (Delivery App)
+
+### 1. Install Dependencies
+Navigate to the `mobile/delivery-app/` directory and install the packages:
+```bash
+cd mobile/delivery-app
+npm install
+```
+
+### 2. Run the App
+Start the Expo development server:
+```bash
+npm start
+```
+Use the printed QR code with the **Expo Go** app on a physical Android device, or press `a` to boot the app in an Android emulator.
+
+### 3. Compile-Check TypeScript
+Verify that there are no TypeScript syntax or compile errors:
+```bash
+npx tsc --noEmit
+```
+
+
 
 

@@ -245,9 +245,16 @@ class Delivery(Base):
     order_id = Column(String(36), ForeignKey("orders.id", ondelete="RESTRICT"), nullable=False)
     delivery_partner_id = Column(String(36), ForeignKey("delivery_partners.user_id", ondelete="RESTRICT"), nullable=False)
     status = Column(String(20), default="ASSIGNED", nullable=False)  # ASSIGNED, PICKED_UP, DELIVERED, FAILED
+    assigned_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     picked_up_at = Column(DateTime, nullable=True)
+    out_for_delivery_at = Column(DateTime, nullable=True)
     delivered_at = Column(DateTime, nullable=True)
     otp_verified = Column(Boolean, default=False, nullable=False)
+    otp_hash = Column(String(128), nullable=True)
+    otp_expires_at = Column(DateTime, nullable=True)
+    otp_attempts = Column(Integer, default=0, nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
 
 
 class Review(Base):

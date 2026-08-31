@@ -287,10 +287,17 @@ Designed to support infinite combinations of cities, campuses, colleges, academi
 | `id` | UUID | Primary Key | Unique Delivery ID |
 | `order_id` | Foreign Key | REFERENCES `orders(id)` | Target Order |
 | `delivery_partner_id`| Foreign Key| REFERENCES `delivery_partners(user_id)` | Assigned Courier |
-| `status` | VARCHAR(20) | DEFAULT 'ASSIGNED' | `ASSIGNED`, `PICKED_UP`, `DELIVERED`, `FAILED` |
-| `picked_up_at` | TIMESTAMP | Nullable | Pickup time |
-| `delivered_at` | TIMESTAMP | Nullable | Dropoff time |
-| `otp_verified` | BOOLEAN | DEFAULT FALSE | Successful delivery confirmation |
+| `status` | VARCHAR(20) | DEFAULT 'ASSIGNED' | `ASSIGNED`, `PICKED_UP`, `OUT_FOR_DELIVERY`, `DELIVERED`, `FAILED` |
+| `assigned_at` | TIMESTAMP | DEFAULT NOW() | Rider assignment timestamp |
+| `picked_up_at` | TIMESTAMP | Nullable | Pickup timestamp |
+| `out_for_delivery_at`| TIMESTAMP | Nullable | Start transit timestamp |
+| `delivered_at` | TIMESTAMP | Nullable | Delivery completion drop-off timestamp |
+| `otp_verified` | BOOLEAN | DEFAULT FALSE | Successful delivery OTP verified flag |
+| `otp_hash` | VARCHAR(128) | Nullable | Secure SHA-256 hash of verification code |
+| `otp_expires_at` | TIMESTAMP | Nullable | Verification code expiration |
+| `otp_attempts` | INT | DEFAULT 0 | Counter for failed verification codes |
+| `created_at` | TIMESTAMP | DEFAULT NOW() | System record creation timestamp |
+| `updated_at` | TIMESTAMP | DEFAULT NOW() | System record update timestamp |
 
 #### `coupons`
 | Column | Type | Constraints | Description |

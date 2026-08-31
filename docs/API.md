@@ -358,5 +358,31 @@ These endpoints are now fully implemented and active under the `/api/v1` prefix.
 * `GET /students/orders` - List active and historical orders for the logged-in student.
 * `GET /students/orders/{order_id}` - Retrieve details and OTP of a specific order.
 
+---
+
+## 8. Delivery Partner REST APIs (Headers: `Authorization: Bearer <JWT>`)
+
+These endpoints are fully implemented and active under the `/api/v1/delivery` prefix:
+
+### 8.1 Profile & Status
+* `GET /delivery/me` - Retrieve delivery partner profile (vehicle specs, dynamic ONLINE/OFFLINE/BUSY duty status).
+* `PATCH /delivery/me/availability` - Toggle ONLINE/OFFLINE duty status (accepts payload `{"is_active": true/false}`).
+
+### 8.2 Orders & Transit
+* `GET /delivery/available-orders` - List orders with status `READY_FOR_PICKUP` available to be claimed.
+* `POST /delivery/orders/{order_id}/accept` - Claim an order (row-level locking, transitions status to `ASSIGNED`).
+* `GET /delivery/orders/active` - Fetch current active order.
+* `GET /delivery/orders/history` - Fetch driver's delivery history (DELIVERED/CANCELLED).
+* `GET /delivery/orders/{order_id}` - Retrieve details of specific assigned order.
+
+### 8.3 Transit Progression
+* `POST /delivery/orders/{order_id}/pickup` - Transition status to `PICKED_UP`.
+* `POST /delivery/orders/{order_id}/start` - Transition status to `OUT_FOR_DELIVERY`, generating and hashing a secure short-lived OTP.
+* `POST /delivery/orders/{order_id}/verify-otp` - Verify the client's entered OTP code. Transitions status to `DELIVERED`, marks order as paid, and logs earnings server-side.
+
+### 8.4 Earnings
+* `GET /delivery/earnings` - Fetch driver's aggregated daily, weekly, monthly, and overall earnings computed server-side.
+
+
 
 

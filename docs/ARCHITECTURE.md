@@ -149,4 +149,25 @@ The app leverages `@react-navigation/native` with nested Stack and Tab navigator
   * **Earnings**: Leads to `EarningsScreen` reporting daily, weekly, monthly, and overall commission-deducted payout metrics from the backend.
   * **Settings**: Leads to `ShopSetupScreen` allowing the shopkeeper to configure their canteens profile (operating hours, contact number, open/closed flags).
 
+---
+
+## 7. Delivery Partner Mobile App Architecture
+
+The Delivery Partner Android app is built using React Native and TypeScript to manage available orders, delivery progressions, OTP checks, and wallet earnings:
+
+### 7.1 Local Storage & Security
+JWT authorization tokens returned on login are saved securely on the handset using `expo-secure-store`. Access is protected via `RoleChecker` guards on the backend, strictly restricting requests to authenticated users with `role = "DELIVERY_PARTNER"`.
+
+### 7.2 Navigation Stack Layout
+The app leverages `@react-navigation/native` with nested Stack and Tab navigators:
+* **Splash Screen**: Session token validation.
+* **Auth Stack**: Includes `Login` screen (blocks non-rider accounts).
+* **Main Bottom Tabs**:
+  * **Dashboard**: Toggle online status, view stats, and claim available orders (`READY_FOR_PICKUP`).
+  * **Active Delivery**: Track current delivery progress (stepper UI: Accept ➔ Picked Up ➔ Start ➔ Verify OTP form) and view details (maps placeholder, drop-off location). Includes debug helper showing current test OTP.
+  * **History**: View driver's delivery history (DELIVERED/CANCELLED) with filters for Today, This Week, and All Time.
+  * **Earnings**: Breakdown of daily/weekly/monthly payouts.
+  * **Profile**: User info, vehicle settings, star rating, availability switch, and logout trigger.
+
+
 
