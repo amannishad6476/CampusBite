@@ -337,3 +337,25 @@ When validation fails, or when a request encounters an authentication/authorizat
 }
 ```
 
+---
+
+## 7. Missing Backend APIs (Pending Development)
+
+During the Student Mobile App development (Phase 3), several frontend features were built that require backend endpoints currently scheduled for future development phases. The client currently resolves these routes using a local mock service fallback.
+
+### 7.1 Location Services
+* `GET /campuses` - Fetch active campuses.
+* `GET /colleges?campus_id={id}` - Fetch colleges in a campus.
+* `GET /blocks?campus_id={id}` - Fetch academic blocks/buildings in a campus.
+* `GET /hostels?campus_id={id}` - Fetch hostels in a campus.
+
+### 7.2 Shop & Menu Services
+* `GET /students/shops?campus_id={id}` - List canteens available on a specific campus.
+* `GET /students/shops/{id}/categories` - List categories under a canteen.
+* `GET /students/shops/{id}/menu` - Fetch menu items for a canteen.
+
+### 7.3 Order Services
+* `POST /students/orders` - Place a new delivery order.
+* `GET /students/orders` - List active and historical orders.
+
+

@@ -106,3 +106,26 @@ All endpoints require verification via JSON Web Tokens (JWT) signed by the backe
 1. **Isolation**: A shopkeeper cannot access API routes containing metadata or orders of another shop. The backend enforces this through path validations (e.g., matching the shopkeeper's user token payload to the requested resource's owner).
 2. **Delivery Security**: Delivery partners are only authorized to read delivery instructions (such as customer name, phone number, and building address) for orders currently assigned to them.
 3. **Data Verification**: All password storage uses **bcrypt** hashing. Credentials are never stored as plain text. Input payloads are validated by FastAPI using **Pydantic** models, filtering out SQL injection and format mismatches.
+
+---
+
+## 5. Student Mobile App Architecture
+
+The Student Android app is built using React Native and TypeScript, structured as follows:
+
+### 5.1 Local Storage & Security
+JWT authorization tokens returned on login are saved securely on the handset using `expo-secure-store`. Password strings are never stored locally.
+
+### 5.2 Navigation Stack Layout
+The app leverages `@react-navigation/native` with nested Stack and Tab navigators:
+* **Splash Screen**: Initial loading page that routes to either the Auth stack (if no valid JWT is present) or Main application stack (if a token exists).
+* **Auth Stack**: Includes `Login` and `Register` screens.
+* **Main Bottom Tabs**:
+  * **Browse (HomeStack)**: Leads to `HomeScreen` ➜ `ShopMenuScreen` ➔ `CheckoutScreen`.
+  * **Cart**: Leads to `CartScreen` where students can manage item quantities and subtotals.
+  * **Orders**: Leads to `OrdersScreen` displaying order history and OTP codes.
+  * **Profile**: Leads to `ProfileScreen` where users can view account details and trigger log out.
+
+### 5.3 Resilient API Fallback Strategy
+To support end-to-end user evaluation before all backend endpoints are developed, the client uses `src/services/apiService.ts`. If endpoints for listing canteens, fetching menus, checking out, or listing orders return a 404 error, the client catches the request failure and automatically falls back to local memory mock records (`mockData.ts`). User registration, login, and profile fetching (/me) connect to the active backend FastAPI endpoints.
+
