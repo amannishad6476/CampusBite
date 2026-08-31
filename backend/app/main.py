@@ -5,7 +5,7 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.encoders import jsonable_encoder
 from sqlalchemy.exc import SQLAlchemyError
 from app.core.config import settings
-from app.api.routes import auth
+from app.api.routes import auth, locations, student_ops
 
 app = FastAPI(
     title=settings.PROJECT_NAME,
@@ -52,6 +52,18 @@ app.include_router(
     auth.router,
     prefix=f"{settings.API_V1_STR}/auth",
     tags=["Authentication"]
+)
+
+app.include_router(
+    locations.router,
+    prefix=f"{settings.API_V1_STR}",
+    tags=["Locations"]
+)
+
+app.include_router(
+    student_ops.router,
+    prefix=f"{settings.API_V1_STR}/students",
+    tags=["Student Operations"]
 )
 
 @app.get("/")

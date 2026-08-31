@@ -339,23 +339,24 @@ When validation fails, or when a request encounters an authentication/authorizat
 
 ---
 
-## 7. Missing Backend APIs (Pending Development)
+## 7. Dynamic Location, Shop, and Ordering APIs
 
-During the Student Mobile App development (Phase 3), several frontend features were built that require backend endpoints currently scheduled for future development phases. The client currently resolves these routes using a local mock service fallback.
+These endpoints are now fully implemented and active under the `/api/v1` prefix.
 
-### 7.1 Location Services
+### 7.1 Location Endpoints
 * `GET /campuses` - Fetch active campuses.
 * `GET /colleges?campus_id={id}` - Fetch colleges in a campus.
 * `GET /blocks?campus_id={id}` - Fetch academic blocks/buildings in a campus.
 * `GET /hostels?campus_id={id}` - Fetch hostels in a campus.
 
-### 7.2 Shop & Menu Services
+### 7.2 Catalog Browsing Endpoints
 * `GET /students/shops?campus_id={id}` - List canteens available on a specific campus.
-* `GET /students/shops/{id}/categories` - List categories under a canteen.
 * `GET /students/shops/{id}/menu` - Fetch menu items for a canteen.
 
-### 7.3 Order Services
+### 7.3 Order Lifecycle Endpoints
 * `POST /students/orders` - Place a new delivery order.
-* `GET /students/orders` - List active and historical orders.
+* `GET /students/orders` - List active and historical orders for the logged-in student.
+* `GET /students/orders/{order_id}` - Retrieve details and OTP of a specific order.
+
 
 

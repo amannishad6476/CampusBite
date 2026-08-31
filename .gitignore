@@ -33,3 +33,7 @@ Thumbs.db
 # IDE
 .vscode/
 .idea/
+
+# Databases
+*.db
+*.sqlite
