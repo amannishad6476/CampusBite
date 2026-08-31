@@ -133,6 +133,7 @@ class Shop(Base):
     opening_time = Column(String(20), nullable=True)
     closing_time = Column(String(20), nullable=True)
     delivery_available = Column(Boolean, default=True, nullable=False)
+    status = Column(String(30), default="APPROVED", nullable=False)
 
 
 class FoodCategory(Base):
@@ -316,3 +317,18 @@ class Earning(Base):
     order_id = Column(String(36), ForeignKey("orders.id", ondelete="SET NULL"), nullable=True)
     status = Column(String(20), default="UNPAID", nullable=False)  # UNPAID, PAID
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+
+class AuditLog(Base):
+    __tablename__ = "audit_logs"
+
+    id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    admin_id = Column(String(36), ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    action = Column(String(100), nullable=False)
+    target_type = Column(String(50), nullable=False)
+    target_id = Column(String(50), nullable=True)
+    reason = Column(Text, nullable=True)
+    timestamp = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+    admin = relationship("User")
+

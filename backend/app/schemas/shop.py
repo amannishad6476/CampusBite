@@ -14,6 +14,7 @@ class ShopResponse(BaseModel):
     opening_time: Optional[str] = None
     closing_time: Optional[str] = None
     delivery_available: bool = True
+    status: str = "APPROVED"
 
     class Config:
         from_attributes = True
