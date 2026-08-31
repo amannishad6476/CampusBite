@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 from typing import List, Optional
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 
 from app.core.database import get_db
@@ -43,7 +43,7 @@ def update_my_shop(
     """Update shopkeeper's canteen configuration metadata."""
     shop = get_shopkeeper_shop(current_user, db)
     
-    update_data = shop_in.dict(exclude_unset=True)
+    update_data = shop_in.model_dump(exclude_unset=True) if hasattr(shop_in, "model_dump") else shop_in.dict(exclude_unset=True)
     for field, value in update_data.items():
         setattr(shop, field, value)
         
@@ -306,7 +306,7 @@ def get_my_earnings(
     shop = get_shopkeeper_shop(current_user, db)
     
     # Calculate start points for time windows
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
     start_of_today = datetime(now.year, now.month, now.day)
     one_week_ago = now - timedelta(days=7)
     one_month_ago = now - timedelta(days=30)

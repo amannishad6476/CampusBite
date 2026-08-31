@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 from typing import List, Optional
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 import hashlib
 import random
@@ -160,7 +160,7 @@ def accept_delivery(
         order_id=order.id,
         delivery_partner_id=current_user.id,
         status="ASSIGNED",
-        assigned_at=datetime.utcnow(),
+        assigned_at=datetime.now(timezone.utc),
         otp_verified=False,
         otp_attempts=0
     )
@@ -266,7 +266,7 @@ def mark_order_picked_up(
     delivery = db.query(Delivery).filter(Delivery.order_id == order_id).first()
     if delivery:
         delivery.status = "PICKED_UP"
-        delivery.picked_up_at = datetime.utcnow()
+        delivery.picked_up_at = datetime.now(timezone.utc)
         
     db.commit()
     db.refresh(order)
@@ -310,9 +310,9 @@ def start_order_delivery(
     delivery = db.query(Delivery).filter(Delivery.order_id == order_id).first()
     if delivery:
         delivery.status = "OUT_FOR_DELIVERY"
-        delivery.out_for_delivery_at = datetime.utcnow()
+        delivery.out_for_delivery_at = datetime.now(timezone.utc)
         delivery.otp_hash = otp_hash
-        delivery.otp_expires_at = datetime.utcnow() + timedelta(minutes=30)
+        delivery.otp_expires_at = datetime.now(timezone.utc) + timedelta(minutes=30)
         delivery.otp_attempts = 0
         
     db.commit()
@@ -350,11 +350,15 @@ def verify_delivery_otp(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Delivery tracking record not found.")
 
     # Expiry Check
-    if delivery.otp_expires_at and datetime.utcnow() > delivery.otp_expires_at:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Verification code has expired. Restart delivery to generate a new OTP."
-        )
+    if delivery.otp_expires_at:
+        expiry = delivery.otp_expires_at
+        if expiry.tzinfo is None:
+            expiry = expiry.replace(tzinfo=timezone.utc)
+        if datetime.now(timezone.utc) > expiry:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Verification code has expired. Restart delivery to generate a new OTP."
+            )
 
     # Brute Force check
     if delivery.otp_attempts >= 5:
@@ -378,7 +382,7 @@ def verify_delivery_otp(
     # Validated!
     delivery.otp_verified = True
     delivery.status = "DELIVERED"
-    delivery.delivered_at = datetime.utcnow()
+    delivery.delivered_at = datetime.now(timezone.utc)
     
     order.status = "DELIVERED"
     order.payment_status = "PAID"
@@ -391,7 +395,7 @@ def verify_delivery_otp(
         type="DELIVERY_PAY",
         order_id=order.id,
         status="UNPAID",
-        created_at=datetime.utcnow()
+        created_at=datetime.now(timezone.utc)
     )
     db.add(dp_earning)
 
@@ -409,7 +413,7 @@ def verify_delivery_otp(
             type="SHOP_SALE",
             order_id=order.id,
             status="UNPAID",
-            created_at=datetime.utcnow()
+            created_at=datetime.now(timezone.utc)
         )
         db.add(sk_earning)
 
@@ -438,7 +442,7 @@ def get_my_earnings(
     db: Session = Depends(get_db)
 ):
     """Retrieve driver payout summaries."""
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
     start_of_today = datetime(now.year, now.month, now.day)
     one_week_ago = now - timedelta(days=7)
     one_month_ago = now - timedelta(days=30)

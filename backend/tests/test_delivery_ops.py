@@ -1,6 +1,6 @@
 import pytest
 from decimal import Decimal
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from app.models.models import User, DeliveryPartner, Delivery, Order, Earning, Commission, Shop, FoodCategory, FoodItem
 
 @pytest.fixture
@@ -253,8 +253,9 @@ def test_order_delivery_otp_flows(client, db, test_location, delivery_partner_a)
     assert res_start.status_code == 200
     assert res_start.json()["status"] == "OUT_FOR_DELIVERY"
     
-    # Retrieve the newly generated OTP code from the order detail response
-    generated_otp = res_start.json()["otp"]
+    # Retrieve the newly generated OTP code from the order database record (student side)
+    db.refresh(order)
+    generated_otp = order.otp
     assert len(generated_otp) == 4
 
     # 5. Wrong OTP Verification Check
@@ -367,12 +368,13 @@ def test_delivery_otp_expiration(client, db, test_location, delivery_partner_a):
     headers = delivery_partner_a["headers"]
     client.post(f"/api/v1/delivery/orders/{order.id}/accept", headers=headers)
     client.post(f"/api/v1/delivery/orders/{order.id}/pickup", headers=headers)
-    res_start = client.post(f"/api/v1/delivery/orders/{order.id}/start", headers=headers).json()
-    generated_otp = res_start["otp"]
+    client.post(f"/api/v1/delivery/orders/{order.id}/start", headers=headers)
+    db.refresh(order)
+    generated_otp = order.otp
 
     # Inject expiration manually in DB
     delivery = db.query(Delivery).filter(Delivery.order_id == order.id).first()
-    delivery.otp_expires_at = datetime.utcnow() - timedelta(minutes=5)
+    delivery.otp_expires_at = datetime.now(timezone.utc) - timedelta(minutes=5)
     db.commit()
 
     # Attempt verification should raise expired

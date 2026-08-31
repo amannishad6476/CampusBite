@@ -1,23 +1,50 @@
 # CampusBite — API Specifications
 
 All resources are served relative to the API gateway v1 base URL:
-`https://api.campusbite.com/api/v1`
+`http://localhost:8000/api/v1`
 
 ---
 
-## 1. Authentication Endpoints (`/auth`)
+## 1. System Health Checks
 
-### 1.1 User Registration
+### 1.1 Service Liveness Check
+* **Endpoint**: `GET /health`
+* **Access**: Public
+* **Success Response** (`200 OK`):
+```json
+{
+  "status": "healthy",
+  "service": "CampusBite",
+  "api_version": "/api/v1"
+}
+```
+
+### 1.2 Database Connectivity Check
+* **Endpoint**: `GET /health/db`
+* **Access**: Public
+* **Success Response** (`200 OK`):
+```json
+{
+  "status": "healthy",
+  "database": "connected",
+  "service": "CampusBite"
+}
+```
+
+---
+
+## 2. Authentication Endpoints (`/api/v1/auth`)
+
+### 2.1 User Registration
 * **Endpoint**: `POST /auth/register`
 * **Access**: Public
 * **Request Body**:
 ```json
 {
+  "name": "Aman Nishad",
   "email": "student@bbd.ac.in",
   "phone": "+919876543210",
   "password": "securepassword123",
-  "first_name": "Aman",
-  "last_name": "Nishad",
   "role": "STUDENT",
   "student_details": {
     "campus_id": 1,
@@ -34,12 +61,15 @@ All resources are served relative to the API gateway v1 base URL:
 {
   "id": "c3b7a5a1-77bb-4f40-a15d-35759a930777",
   "email": "student@bbd.ac.in",
+  "name": "Aman Nishad",
+  "phone": "+919876543210",
   "role": "STUDENT",
-  "message": "User registered successfully"
+  "is_active": true,
+  "created_at": "2026-08-30T18:00:00Z"
 }
 ```
 
-### 1.2 User Login
+### 2.2 User Login
 * **Endpoint**: `POST /auth/login`
 * **Access**: Public
 * **Request Body**:
@@ -56,333 +86,147 @@ All resources are served relative to the API gateway v1 base URL:
   "token_type": "bearer",
   "user": {
     "id": "c3b7a5a1-77bb-4f40-a15d-35759a930777",
+    "name": "Aman Nishad",
     "email": "student@bbd.ac.in",
+    "phone": "+919876543210",
     "role": "STUDENT",
-    "first_name": "Aman",
-    "last_name": "Nishad"
+    "is_active": true,
+    "created_at": "2026-08-30T18:00:00Z"
   }
 }
 ```
+
+### 2.3 Current User Profile
+* **Endpoint**: `GET /auth/me`
+* **Access**: Authorized (`Bearer <token>`)
+* **Success Response** (`200 OK`): User object.
 
 ---
 
-## 2. Student Endpoints (`/students` — Headers: `Authorization: Bearer <JWT>`)
+## 3. Location Hierarchy Endpoints (`/api/v1`)
 
-### 2.1 Fetch Campus Configuration & Shops
-* **Endpoint**: `GET /students/shops?campus_id=1`
-* **Access**: Authorized Student
-* **Success Response** (`200 OK`):
-```json
-[
-  {
-    "id": "d1a8e52c-44bc-4e63-a212-32a59a9a3b90",
-    "name": "BBD Block A Canteen",
-    "description": "Hot samosas, meals and cold beverages.",
-    "logo_url": "https://media.campusbite.com/bbd_canteen_a.png",
-    "is_open": true,
-    "rating": 4.5
-  }
-]
-```
+* `GET /campuses` — List active university campuses.
+* `GET /colleges?campus_id={id}` — List colleges belonging to a campus.
+* `GET /blocks?campus_id={id}` — List academic buildings/blocks.
+* `GET /hostels?campus_id={id}` — List hostels/residential blocks.
 
-### 2.2 Browse Shop Menu
+---
+
+## 4. Student Operations (`/api/v1/students` — Role: `STUDENT`)
+
+### 4.1 Browse Canteens
+* **Endpoint**: `GET /students/shops?campus_id={id}`
+* Returns canteens operating on the specified campus.
+
+### 4.2 Browse Food Menu
 * **Endpoint**: `GET /students/shops/{shop_id}/menu`
-* **Access**: Authorized Student
-* **Success Response** (`200 OK`):
-```json
-[
-  {
-    "category_id": 101,
-    "category_name": "Quick Bites",
-    "items": [
-      {
-        "id": "e5b8d234-9988-4444-baee-99757a3b0922",
-        "name": "Samosa Duo",
-        "price": 30.00,
-        "image_url": "https://media.campusbite.com/samosa.png",
-        "is_veg": true,
-        "is_available": true
-      }
-    ]
-  }
-]
-```
+* Returns available menu catalog items for a canteen.
 
-### 2.3 Manage Cart
-* **Endpoint**: `POST /students/cart/items`
+### 4.3 Place Delivery Order
+* **Endpoint**: `POST /students/orders`
 * **Request Body**:
 ```json
 {
-  "food_item_id": "e5b8d234-9988-4444-baee-99757a3b0922",
-  "quantity": 2,
-  "notes": "Serve hot, extra green chutney"
-}
-```
-* **Success Response** (`200 OK`):
-```json
-{
-  "cart_id": "aa3c5e88-9bb2-4f3b-81f1-3323a9a3029f",
-  "shop_id": "d1a8e52c-44bc-4e63-a212-32a59a9a3b90",
+  "shop_id": "shop-uuid",
+  "payment_method": "COD",
+  "delivery_address": {
+    "campus_name": "BBD Campus",
+    "college_name": "BBDNIIT",
+    "block_name": "Block B",
+    "floor_level": "3rd",
+    "room_number": "302",
+    "phone": "+919876543210"
+  },
   "items": [
     {
-      "id": "item-uuid",
-      "food_item_id": "e5b8d234-9988-4444-baee-99757a3b0922",
-      "name": "Samosa Duo",
-      "price": 30.00,
+      "food_item_id": "item-uuid",
       "quantity": 2,
-      "subtotal": 60.00
-    }
-  ],
-  "cart_total": 60.00
-}
-```
-
-### 2.4 Checkout & Payment Init
-* **Endpoint**: `POST /students/checkout`
-* **Request Body**:
-```json
-{
-  "payment_method": "ONLINE",
-  "coupon_code": "BBDNEW50",
-  "delivery_notes": "Deliver near the main library reception"
-}
-```
-* **Success Response** (`200 OK`):
-```json
-{
-  "order_id": "fb2b88aa-33b2-4d2a-a92e-99858a742880",
-  "order_number": "CB-2026-8910",
-  "status": "PLACED",
-  "total_amount": 75.00,
-  "payment_required": true,
-  "payment_gateway_payload": {
-    "gateway": "RAZORPAY",
-    "reference_order_id": "order_Hj920Kjas",
-    "amount": 7500
-  }
-}
-```
-
----
-
-## 3. Shopkeeper Endpoints (`/shops` — Headers: `Authorization: Bearer <JWT>`)
-
-### 3.1 Fetch Shop Orders
-* **Endpoint**: `GET /shops/orders?status=active`
-* **Success Response** (`200 OK`):
-```json
-[
-  {
-    "order_id": "fb2b88aa-33b2-4d2a-a92e-99858a742880",
-    "order_number": "CB-2026-8910",
-    "status": "PLACED",
-    "total_amount": 75.00,
-    "items": [
-      {
-        "name": "Samosa Duo",
-        "quantity": 2,
-        "notes": "Serve hot, extra green chutney"
-      }
-    ],
-    "created_at": "2026-08-30T18:10:00Z"
-  }
-]
-```
-
-### 3.2 Update Order Processing State
-* **Endpoint**: `POST /shops/orders/{order_id}/status`
-* **Request Body**:
-```json
-{
-  "status": "PREPARING"
-}
-```
-* **Success Response** (`200 OK`):
-```json
-{
-  "order_id": "fb2b88aa-33b2-4d2a-a92e-99858a742880",
-  "status": "PREPARING",
-  "updated_at": "2026-08-30T18:15:30Z"
-}
-```
-
----
-
-## 4. Delivery Partner Endpoints (`/delivery` — Headers: `Authorization: Bearer <JWT>`)
-
-### 4.1 Check Available Pickups
-* **Endpoint**: `GET /delivery/orders/available`
-* **Success Response** (`200 OK`):
-```json
-[
-  {
-    "order_id": "fb2b88aa-33b2-4d2a-a92e-99858a742880",
-    "shop_name": "BBD Block A Canteen",
-    "shop_address": "Block A Ground Floor",
-    "delivery_destination": {
-      "college": "BBDNIIT",
-      "block": "Block B",
-      "floor": "3rd",
-      "room": "302"
-    }
-  }
-]
-```
-
-### 4.2 Complete Delivery (OTP Verification)
-* **Endpoint**: `POST /delivery/orders/{order_id}/complete`
-* **Request Body**:
-```json
-{
-  "otp": "4892"
-}
-```
-* **Success Response** (`200 OK`):
-```json
-{
-  "status": "DELIVERED",
-  "message": "OTP verified successfully. Order completed.",
-  "earning_credited": 25.00
-}
-```
-
----
-
-## 5. Admin Endpoints (`/admin` — Headers: `Authorization: Bearer <JWT>`)
-
-### 5.1 Configure Campus
-* **Endpoint**: `POST /admin/campuses`
-* **Request Body**:
-```json
-{
-  "name": "BBD University Campus",
-  "address": "Faizabad Road, Lucknow",
-  "city_id": 1,
-  "latitude": 26.8912,
-  "longitude": 81.0628
-}
-```
-* **Success Response** (`201 Created`):
-```json
-{
-  "id": 1,
-  "name": "BBD University Campus",
-  "message": "Campus registered successfully."
-}
-```
-
-### 5.2 Configure Colleges in Campus
-* **Endpoint**: `POST /admin/colleges`
-* **Request Body**:
-```json
-{
-  "name": "BBDNIIT",
-  "campus_id": 1
-}
-```
-* **Success Response** (`201 Created`):
-```json
-{
-  "id": 3,
-  "name": "BBDNIIT",
-  "campus_id": 1
-}
-```
-
----
-
-## 6. Security & Global Error Handling
-
-### 6.1 Authentication Header
-All authenticated requests must include the JWT token in the `Authorization` header:
-```http
-Authorization: Bearer <JWT_ACCESS_TOKEN>
-```
-
-### 6.2 Standard Error Response Payload
-When validation fails, or when a request encounters an authentication/authorization error, the gateway returns a standard error format:
-
-* **Validation Error (HTTP 422 Unprocessable Entity)**:
-```json
-{
-  "detail": "Input validation error",
-  "errors": [
-    {
-      "loc": ["body", "email"],
-      "msg": "value is not a valid email address",
-      "type": "value_error.email"
+      "notes": "Extra chutney"
     }
   ]
 }
 ```
+* **Success Response** (`201 Created` — `StudentOrderResponse`): Includes `subtotal`, `delivery_fee`, `tax`, `total_amount`, and `otp` (4-digit verification code).
 
-* **Authentication Error (HTTP 401 Unauthorized)**:
-```json
-{
-  "detail": "Could not validate credentials"
-}
-```
-
-* **Authorization Error (HTTP 403 Forbidden)**:
-```json
-{
-  "detail": "Action forbidden: Insufficient permissions"
-}
-```
-
-* **Database/Internal Error (HTTP 500 Internal Server Error)**:
-```json
-{
-  "detail": "Database connection or transaction failure. Action aborted."
-}
-```
+### 4.4 Order Tracking
+* `GET /students/orders` — List active and historical orders.
+* `GET /students/orders/{order_id}` — View single order tracking details and OTP code.
 
 ---
 
-## 7. Dynamic Location, Shop, and Ordering APIs
+## 5. Shopkeeper Operations (`/api/v1/shopkeepers` — Role: `SHOPKEEPER`)
 
-These endpoints are now fully implemented and active under the `/api/v1` prefix.
+### 5.1 Profile & Catalog
+* `GET /shopkeepers/me/shop` — Retrieve shop profile.
+* `PUT /shopkeepers/me/shop` — Update shop metadata (phone, opening hours).
+* `GET /shopkeepers/me/categories` / `POST /shopkeepers/me/categories` / `PUT /shopkeepers/me/categories/{id}` / `DELETE /shopkeepers/me/categories/{id}` — Manage food categories.
+* `GET /shopkeepers/me/menu` / `POST /shopkeepers/me/menu` / `PUT /shopkeepers/me/menu/{id}` / `DELETE /shopkeepers/me/menu/{id}` — Manage food items.
 
-### 7.1 Location Endpoints
-* `GET /campuses` - Fetch active campuses.
-* `GET /colleges?campus_id={id}` - Fetch colleges in a campus.
-* `GET /blocks?campus_id={id}` - Fetch academic blocks/buildings in a campus.
-* `GET /hostels?campus_id={id}` - Fetch hostels in a campus.
+### 5.2 Order Processing
+* `GET /shopkeepers/me/orders?status_filter=PENDING` — Browse active orders.
+* `GET /shopkeepers/me/orders/{id}` — Retrieve order details (OTP is stripped).
+* `PATCH /shopkeepers/me/orders/{id}/status` — Transition order lifecycle (`PENDING` -> `ACCEPTED` -> `PREPARING` -> `READY_FOR_PICKUP` or `CANCELLED`).
 
-### 7.2 Catalog Browsing Endpoints
-* `GET /students/shops?campus_id={id}` - List canteens available on a specific campus.
-* `GET /students/shops/{id}/menu` - Fetch menu items for a canteen.
-
-### 7.3 Order Lifecycle Endpoints
-* `POST /students/orders` - Place a new delivery order.
-* `GET /students/orders` - List active and historical orders for the logged-in student.
-* `GET /students/orders/{order_id}` - Retrieve details and OTP of a specific order.
+### 5.3 Earnings
+* `GET /shopkeepers/me/earnings` — Aggregate daily, weekly, monthly, and all-time earnings.
 
 ---
 
-## 8. Delivery Partner REST APIs (Headers: `Authorization: Bearer <JWT>`)
+## 6. Delivery Partner Operations (`/api/v1/delivery` — Role: `DELIVERY_PARTNER`)
 
-These endpoints are fully implemented and active under the `/api/v1/delivery` prefix:
+### 6.1 Profile & Duty Availability
+* `GET /delivery/me` — Rider profile, vehicle specs, and dynamic duty status (`ONLINE`, `OFFLINE`, `BUSY`).
+* `PATCH /delivery/me/availability` — Toggle duty status (`{"is_active": true/false}`).
 
-### 8.1 Profile & Status
-* `GET /delivery/me` - Retrieve delivery partner profile (vehicle specs, dynamic ONLINE/OFFLINE/BUSY duty status).
-* `PATCH /delivery/me/availability` - Toggle ONLINE/OFFLINE duty status (accepts payload `{"is_active": true/false}`).
+### 6.2 Order Claims & Progression
+* `GET /delivery/available-orders` — List unclaimed orders with status `READY_FOR_PICKUP` (OTP is stripped).
+* `POST /delivery/orders/{order_id}/accept` — Claim order atomically (transitions to `ASSIGNED`).
+* `GET /delivery/orders/active` — Active delivery task.
+* `GET /delivery/orders/history` — Completed & cancelled delivery records.
+* `GET /delivery/orders/{order_id}` — Order destination details.
+* `POST /delivery/orders/{order_id}/pickup` — Mark picked up (`PICKED_UP`).
+* `POST /delivery/orders/{order_id}/start` — Mark in transit (`OUT_FOR_DELIVERY`), generating hashed short-lived OTP.
+* `POST /delivery/orders/{order_id}/verify-otp` — Verify student OTP code (`{"otp": "1234"}`). Transitions to `DELIVERED`, logs driver payout, shopkeeper share, and platform commission.
 
-### 8.2 Orders & Transit
-* `GET /delivery/available-orders` - List orders with status `READY_FOR_PICKUP` available to be claimed.
-* `POST /delivery/orders/{order_id}/accept` - Claim an order (row-level locking, transitions status to `ASSIGNED`).
-* `GET /delivery/orders/active` - Fetch current active order.
-* `GET /delivery/orders/history` - Fetch driver's delivery history (DELIVERED/CANCELLED).
-* `GET /delivery/orders/{order_id}` - Retrieve details of specific assigned order.
+### 6.3 Earnings
+* `GET /delivery/earnings` — Rider payouts breakdown.
 
-### 8.3 Transit Progression
-* `POST /delivery/orders/{order_id}/pickup` - Transition status to `PICKED_UP`.
-* `POST /delivery/orders/{order_id}/start` - Transition status to `OUT_FOR_DELIVERY`, generating and hashing a secure short-lived OTP.
-* `POST /delivery/orders/{order_id}/verify-otp` - Verify the client's entered OTP code. Transitions status to `DELIVERED`, marks order as paid, and logs earnings server-side.
+---
 
-### 8.4 Earnings
-* `GET /delivery/earnings` - Fetch driver's aggregated daily, weekly, monthly, and overall earnings computed server-side.
+## 7. Admin Control Console (`/api/v1/admin` — Role: `ADMIN`)
 
+### 7.1 Dashboard & Analytics
+* `GET /admin/dashboard` — Platform statistics (students, shops, riders, GMV, commissions, delivery fees).
 
+### 7.2 Location Architecture Management
+* `POST /admin/campuses`, `PUT /admin/campuses/{id}`, `DELETE /admin/campuses/{id}`
+* `POST /admin/colleges`, `PUT /admin/colleges/{id}`, `DELETE /admin/colleges/{id}`
+* `POST /admin/blocks`, `PUT /admin/blocks/{id}`, `DELETE /admin/blocks/{id}`
+* `POST /admin/hostels`, `PUT /admin/hostels/{id}`, `DELETE /admin/hostels/{id}`
 
+### 7.3 Canteen & Vendor Controls
+* `GET /admin/shops` — Browse all registered canteens.
+* `GET /admin/shops/{id}` / `/menu` / `/orders` — Inspect canteen catalogs and transaction books.
+* `PATCH /admin/shops/{id}/status` — Modify shop status (`PENDING`, `APPROVED`, `ACTIVE`, `SUSPENDED`, `INACTIVE`) with mandatory audit reason.
 
+### 7.4 User Access & Suspension
+* `GET /admin/students`, `/admin/shopkeepers`, `/admin/delivery-partners` — Audit user accounts and rider availability.
+* `PATCH /admin/users/{user_id}/status` — Enable or suspend login credentials (`is_active: true/false`) with audit reason.
+
+### 7.5 Order Auditing & Emergency Overrides
+* `GET /admin/orders` & `GET /admin/orders/{order_id}` — Inspect order records across all canteens.
+* `POST /admin/orders/{order_id}/override` — Force order status transition with mandatory audited reason.
+
+### 7.6 Finance & Audit Trail
+* `GET /admin/finance` — Payout ledger splits for shopkeepers, riders, and platform revenue.
+* `GET /admin/audit-logs` — Immutable server-side log of administrative actions.
+
+---
+
+## 8. Security & Global Error Responses
+
+* `401 Unauthorized` — Invalid, expired, or missing JWT Bearer token.
+* `403 Forbidden` — Insufficient role permissions or horizontal object ownership boundary violation.
+* `404 Not Found` — Resource does not exist or unauthorized access.
+* `422 Unprocessable Entity` — Request input validation failure.
+* `500 Internal Server Error` — Database transaction or connection error.

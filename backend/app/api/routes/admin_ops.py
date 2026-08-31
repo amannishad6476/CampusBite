@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 from typing import List, Optional
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 
 from app.core.database import get_db
@@ -31,7 +31,7 @@ def log_admin_action(db: Session, admin_id: str, action: str, target_type: str, 
         target_type=target_type,
         target_id=target_id,
         reason=reason,
-        timestamp=datetime.utcnow()
+        timestamp=datetime.now(timezone.utc)
     )
     db.add(log)
     db.commit()
@@ -50,7 +50,7 @@ def get_admin_dashboard(
     total_shops = db.query(Shop).count()
     active_shops = db.query(Shop).filter(Shop.status == "ACTIVE").count()
 
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
     start_of_today = datetime(now.year, now.month, now.day)
 
     today_orders = db.query(Order).filter(Order.created_at >= start_of_today).count()

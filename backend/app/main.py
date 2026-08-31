@@ -1,10 +1,13 @@
-from fastapi import FastAPI, Request, status
+from fastapi import FastAPI, Request, Depends, status
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.exceptions import RequestValidationError
 from fastapi.encoders import jsonable_encoder
+from sqlalchemy.orm import Session
+from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
 from app.core.config import settings
+from app.core.database import get_db
 from app.api.routes import auth, locations, student_ops, shopkeeper_ops, delivery_ops, admin_ops
 
 app = FastAPI(
@@ -30,7 +33,6 @@ if settings.BACKEND_CORS_ORIGINS:
 @app.exception_handler(SQLAlchemyError)
 def sqlalchemy_exception_handler(request: Request, exc: SQLAlchemyError):
     """Global handler for intercepting database transaction/integrity errors."""
-    # Note: Real systems should log this exception securely.
     return JSONResponse(
         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
         content={"detail": "Database connection or transaction failure. Action aborted."}
@@ -95,3 +97,19 @@ def health_check():
         "service": settings.PROJECT_NAME,
         "api_version": settings.API_V1_STR
     }
+
+@app.get("/health/db")
+def health_db_check(db: Session = Depends(get_db)):
+    """Verifies database connectivity without exposing connection secrets."""
+    try:
+        db.execute(text("SELECT 1"))
+        return {
+            "status": "healthy",
+            "database": "connected",
+            "service": settings.PROJECT_NAME
+        }
+    except Exception:
+        return JSONResponse(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            content={"status": "unhealthy", "database": "disconnected"}
+        )

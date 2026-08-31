@@ -47,12 +47,17 @@ class OrderResponse(BaseModel):
     payment_status: str
     payment_method: str
     delivery_address: Dict[str, Any]
-    otp: str
     created_at: datetime
     updated_at: datetime
     items: List[OrderItemResponse] = []
 
     class Config:
         from_attributes = True
-        # Allow population by field name or relationship properties
         populate_by_name = True
+
+class StudentOrderResponse(OrderResponse):
+    """
+    Student-facing order response including the 4-digit verification OTP code.
+    Delivery partners and shopkeepers receive OrderResponse which strips this field.
+    """
+    otp: str
