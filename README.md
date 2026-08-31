@@ -37,9 +37,10 @@ CampusBite/
 │   └── alembic/             # Database migrations
 │
 ├── docs/                    # Architectural Specifications & Runbooks
+│   ├── PILOT_GO_NO_GO.md    # Formal Go / No-Go decision framework & evaluation matrix
 │   ├── PILOT_CHECKLIST.md   # Pre-launch, launch day, and post-launch operational gates
 │   ├── SECURITY_CHECKLIST.md# 12-point production security audit checklist
-│   ├── PILOT_OPERATIONS.md  # Pilot setup, shop onboarding, delivery dispatch, emergency procedures
+│   ├── PILOT_OPERATIONS.md  # 12-step pilot day sequence, shop onboarding, incident playbooks
 │   ├── DEPLOYMENT.md        # Production deployment, Gunicorn, PostgreSQL, Nginx, backups
 │   ├── ARCHITECTURE.md      # Role mappings, dynamic location configurations, system logic
 │   ├── DATABASE.md          # PostgreSQL tables, ERD, indexes, SQLAlchemy models
@@ -108,9 +109,10 @@ npm run build
 
 ## 📚 Operational Documentation
 
+* [Pilot Go / No-Go Decision Gate](file:///d:/CampusBite/docs/PILOT_GO_NO_GO.md)
 * [Pilot Operational Checklist](file:///d:/CampusBite/docs/PILOT_CHECKLIST.md)
 * [Production Security Checklist](file:///d:/CampusBite/docs/SECURITY_CHECKLIST.md)
-* [Pilot Operations & Shop Onboarding Guide](file:///d:/CampusBite/docs/PILOT_OPERATIONS.md)
+* [Pilot Operations & Incident Playbook](file:///d:/CampusBite/docs/PILOT_OPERATIONS.md)
 * [Deployment Runbook & PostgreSQL Backups](file:///d:/CampusBite/docs/DEPLOYMENT.md)
 * [System Architecture Specification](file:///d:/CampusBite/docs/ARCHITECTURE.md)
 * [API Reference & Route Specs](file:///d:/CampusBite/docs/API.md)
