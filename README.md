@@ -31,17 +31,19 @@ CampusBite/
 │   │   ├── core/            # Configuration, database session, security tools
 │   │   ├── models/          # PostgreSQL SQLAlchemy models
 │   │   ├── schemas/         # Pydantic schemas
-│   │   ├── services/        # Business services (PaymentService, NotificationService, RateLimiter)
-│   │   └── scripts/         # Pilot seed data generator (seed_pilot_data.py)
-│   ├── tests/               # 44 integration, E2E, pilot, and security tests
+│   │   ├── services/        # Services (PaymentService, NotificationService, RateLimiter)
+│   │   └── scripts/         # Pilot seed scripts (seed_controlled_pilot.py & seed_pilot_data.py)
+│   ├── tests/               # 49 integration, E2E, pilot, and security tests
 │   └── alembic/             # Database migrations
 │
 ├── docs/                    # Architectural Specifications & Runbooks
+│   ├── PILOT_CHECKLIST.md   # Pre-launch, launch day, and post-launch operational gates
+│   ├── SECURITY_CHECKLIST.md# 12-point production security audit checklist
+│   ├── PILOT_OPERATIONS.md  # Pilot setup, shop onboarding, delivery dispatch, emergency procedures
+│   ├── DEPLOYMENT.md        # Production deployment, Gunicorn, PostgreSQL, Nginx, backups
 │   ├── ARCHITECTURE.md      # Role mappings, dynamic location configurations, system logic
 │   ├── DATABASE.md          # PostgreSQL tables, ERD, indexes, SQLAlchemy models
-│   ├── API.md               # API Endpoints, JSON payloads, responses
-│   ├── DEPLOYMENT.md        # Production deployment, Gunicorn, PostgreSQL, Nginx, backups
-│   └── PILOT_OPERATIONS.md  # 6-college pilot setup, shop onboarding, delivery dispatch
+│   └── API.md               # API Endpoints, JSON payloads, responses
 │
 └── README.md                # Project handbook (this file)
 ```
@@ -50,16 +52,22 @@ CampusBite/
 
 ## 📐 Dynamic Multi-College Pilot Architecture
 
-The platform operates across 6 colleges and residential hostels without hardcoding in frontend or backend logic:
+The platform operates across academic colleges, blocks, and residential hostels without hardcoding in frontend or backend logic:
 
 * **Academic Location**: `City ➜ Campus ➜ College ➜ Block ➜ Floor ➜ Room`
 * **Residential Location**: `Campus ➜ Hostel ➜ Room`
 
-To seed the 6-college pilot environment on any clean database:
-```bash
-cd backend
-python -m app.scripts.seed_pilot_data
-```
+### Seeding Pilot Datasets
+* **Controlled Pilot (Recommended for initial launch)**:
+  ```bash
+  cd backend
+  python -m app.scripts.seed_controlled_pilot
+  ```
+* **Full Multi-College Pilot (6 Colleges)**:
+  ```bash
+  cd backend
+  python -m app.scripts.seed_pilot_data
+  ```
 
 ---
 
@@ -70,7 +78,7 @@ python -m app.scripts.seed_pilot_data
 cd backend
 python -m pytest
 ```
-*Result: 44/44 tests passing.*
+*Result: 49/49 tests passing.*
 
 ### 2. Student Mobile App Check
 ```bash
@@ -100,8 +108,10 @@ npm run build
 
 ## 📚 Operational Documentation
 
-* [Deployment Runbook & PostgreSQL Backups](file:///d:/CampusBite/docs/DEPLOYMENT.md)
+* [Pilot Operational Checklist](file:///d:/CampusBite/docs/PILOT_CHECKLIST.md)
+* [Production Security Checklist](file:///d:/CampusBite/docs/SECURITY_CHECKLIST.md)
 * [Pilot Operations & Shop Onboarding Guide](file:///d:/CampusBite/docs/PILOT_OPERATIONS.md)
+* [Deployment Runbook & PostgreSQL Backups](file:///d:/CampusBite/docs/DEPLOYMENT.md)
 * [System Architecture Specification](file:///d:/CampusBite/docs/ARCHITECTURE.md)
 * [API Reference & Route Specs](file:///d:/CampusBite/docs/API.md)
 * [Database ERD & Schema Specs](file:///d:/CampusBite/docs/DATABASE.md)

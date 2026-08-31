@@ -1,34 +1,31 @@
-# CampusBite — Multi-College Pilot Operations Handbook
+# CampusBite — Pilot Operations & Support Handbook
 
-This guide outlines operational procedures, shop onboarding workflows, delivery partner dispatch rules, and emergency protocols for the **6-College CampusBite Pilot**.
+This guide outlines operational procedures, shop onboarding workflows, delivery dispatch rules, support protocols, and emergency escalation pathways for the **CampusBite College Pilot**.
 
 ---
 
-## 1. Pilot Campus Layout (6 Colleges)
+## 1. Pilot Rollout Strategy
 
-The initial pilot is deployed across **BBD Educational Campus** with six operational colleges and dedicated food hubs:
+CampusBite supports two deployment modes for pilot launch:
 
-| College | Building / Block | Primary Canteen |
-| :--- | :--- | :--- |
-| **BBD University (BBDU)** | Main Academic Block | Central Cafeteria |
-| **BBDNITM** | Engineering Block A | Engineering Food Court |
-| **BBDNIIT** | Tech Wing B | NIIT Express Bites |
-| **BBDCODS** | Clinical Sciences Wing | Dental Campus Cafe |
-| **BBDIHM** | Culinary Arts Block | Gourmet Hub |
-| **BBDSP** | Pharmaceutical Research Wing | Medico Fast Bites |
+### Mode A: Controlled Pilot (Single College Stage Gate - Recommended)
+* **Target**: BBD University (BBDU) — Main Academic Block & Science Block.
+* **Canteens**: Central Cafeteria & Campus Bakery.
+* **Volume**: 10 Test Students, 3 Delivery Partners, 1 Admin.
+* **Seed Command**:
+  ```bash
+  cd backend
+  python -m app.scripts.seed_controlled_pilot
+  ```
 
-Residential Hostels connected to pilot zones:
-* **Tagore Boys Hostel**
-* **Gargi Girls Hostel**
-* **Raman Boys Hostel**
-* **Sarojini Girls Hostel**
-
-### 1.1 Initializing Pilot Dataset
-To seed the database with the 6 colleges, hostels, canteens, and pilot accounts:
-```bash
-cd backend
-python -m app.scripts.seed_pilot_data
-```
+### Mode B: Full Multi-College Pilot (6 Colleges)
+* **Target**: All 6 Campus Colleges (BBDU, BBDNITM, BBDNIIT, BBDCODS, BBDIHM, BBDSP) & 4 Residential Hostels.
+* **Canteens**: 6 Dedicated Campus Food Hubs.
+* **Seed Command**:
+  ```bash
+  cd backend
+  python -m app.scripts.seed_pilot_data
+  ```
 
 ---
 
@@ -44,23 +41,23 @@ graph TD
     F --> G[Canteen Appears Live on Student App]
 ```
 
-### Step 1: Shopkeeper Account Creation
-* The shopkeeper downloads the **Shopkeeper Android App** and registers with their Name, Email, Phone, and selects role `SHOPKEEPER`.
-* An initial `Shop` profile is created with status `PENDING`.
+### Step 1: Shopkeeper Registration
+* Shopkeeper registers via the Shopkeeper Android App with Name, Email, Phone, and Canteen Name.
+* An initial `Shop` profile is created in `PENDING` state. Unapproved canteens are never exposed to students.
 
-### Step 2: Admin Review
-* The administrator opens `https://admin.campusbite.com/shops`.
+### Step 2: Admin Physical & Operational Review
+* Administrator accesses `https://admin.campusbite.com/shops`.
 * Admin reviews the shop name, contact number, assigned campus, and operating hours.
 
 ### Step 3: Admin Approval & Activation
-* Admin clicks **Approve** and selects status `ACTIVE` with an audited reason (e.g., *"Canteen verified on site"*).
-* The action is immutably recorded in `AuditLog`.
+* Admin clicks **Approve** and sets status to `ACTIVE` with a mandatory audited reason (e.g., *"Canteen verified on site"*).
+* Recorded immutably in `AuditLog`.
 
 ### Step 4: Menu Setup
-* The shopkeeper opens the Shopkeeper app and adds Food Categories (e.g. *Snacks, Beverages, Meals*) and Food Items (with price, preparation time, and veg/non-veg flag).
+* Shopkeeper configures food categories (e.g. *Snacks, Beverages, Meals*) and food items with verified pricing and preparation time.
 
-### Step 5: Live Ordering
-* The canteen instantly appears under the Student App's canteens catalog for students on that campus.
+### Step 5: Live Student Ordering
+* The canteen instantly appears under the active canteens catalog for students on that campus.
 
 ---
 
@@ -68,7 +65,7 @@ graph TD
 
 ### 3.1 Duty Status
 * Delivery partners toggle **ONLINE** or **OFFLINE** in the Delivery App.
-* Only **ONLINE** riders receive available order alerts.
+* Only **ONLINE** riders receive available order pickup alerts.
 
 ### 3.2 Order Claiming (Atomic Lock)
 * When a canteen marks an order as `READY_FOR_PICKUP`, it appears in `available-orders`.
@@ -95,15 +92,18 @@ graph TD
 
 ---
 
-## 5. Emergency Procedures & Overrides
+## 5. Support Operations & Emergency Protocols
 
-### 5.1 Emergency Order Override
-If an order is stalled (e.g., rider vehicle breakdown or student unavailable):
-1. Admin navigates to `/orders/{id}` in Admin Panel.
-2. Selects **Emergency Override** and chooses new state (`CANCELLED` or `DELIVERED`).
-3. Inputs mandatory explanation in the reason dialog.
-4. Status transitions immediately and writes to `AuditLog`.
+### 5.1 Order Cancellation & Refund Rules
+* **Before Acceptance**: Orders in `PENDING` status can be cancelled with 100% refund.
+* **During Preparation**: Orders in `PREPARING` status require admin intervention before cancellation to protect vendor food costs.
+* **Failed Delivery**: If an order cannot be delivered within 45 minutes, Admin cancels the order and marks payment as `REFUNDED`.
 
-### 5.2 Vendor / User Suspension
-* If a vendor or user violates campus policies, Admin opens `/users` or `/shops` and clicks **Suspend**.
-* Prevents subsequent logins and freezes active order placement immediately.
+### 5.2 Admin Emergency Interventions
+* **Stalled Order Override**: Admin navigates to `/orders/{id}` and selects **Emergency Override** with mandatory explanation.
+* **Vendor / User Suspension**: If a vendor or user violates campus policies, Admin opens `/users` or `/shops` and clicks **Suspend**, freezing access immediately.
+
+### 5.3 Pilot Operational Contact Placeholders
+* **Campus Operations Desk**: `support@campusbite.com` | `+91-98765-00000`
+* **Student Help Desk**: Accessible via Student App *Help & Feedback* section.
+* **Escalation SLA**: Critical delivery issues resolved within 15 minutes during pilot hours (08:00 AM – 10:00 PM).
