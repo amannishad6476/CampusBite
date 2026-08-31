@@ -10,6 +10,10 @@ class ShopResponse(BaseModel):
     rating: Decimal
     is_open: bool
     campus_id: int
+    phone_number: Optional[str] = None
+    opening_time: Optional[str] = None
+    closing_time: Optional[str] = None
+    delivery_available: bool = True
 
     class Config:
         from_attributes = True
@@ -31,6 +35,8 @@ class FoodItemResponse(BaseModel):
     is_available: bool
     category_id: int
     shop_id: str
+    description: Optional[str] = None
+    preparation_time: int = 15
 
     class Config:
         from_attributes = True

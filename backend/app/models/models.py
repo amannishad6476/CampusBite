@@ -129,6 +129,10 @@ class Shop(Base):
     campus_id = Column(Integer, ForeignKey("campuses.id", ondelete="RESTRICT"), nullable=False)
     is_open = Column(Boolean, default=True, nullable=False)
     rating = Column(Numeric(3, 2), default=5.0, nullable=False)
+    phone_number = Column(String(20), nullable=True)
+    opening_time = Column(String(20), nullable=True)
+    closing_time = Column(String(20), nullable=True)
+    delivery_available = Column(Boolean, default=True, nullable=False)
 
 
 class FoodCategory(Base):
@@ -150,6 +154,8 @@ class FoodItem(Base):
     is_available = Column(Boolean, default=True, nullable=False)
     category_id = Column(Integer, ForeignKey("food_categories.id", ondelete="RESTRICT"), nullable=False)
     shop_id = Column(String(36), ForeignKey("shops.id", ondelete="CASCADE"), nullable=False)
+    description = Column(Text, nullable=True)
+    preparation_time = Column(Integer, default=15, nullable=False)
 
 
 class Cart(Base):

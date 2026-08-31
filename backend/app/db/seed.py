@@ -141,7 +141,11 @@ def seed_db():
             shopkeeper_id=shopkeeper.user_id,
             campus_id=bbd_campus.id,
             rating=Decimal("4.3"),
-            is_open=True
+            is_open=True,
+            phone_number="+919876543299",
+            opening_time="08:00",
+            closing_time="20:00",
+            delivery_available=True
         )
         db.add(shop1)
         
@@ -152,7 +156,11 @@ def seed_db():
             shopkeeper_id=shopkeeper.user_id,
             campus_id=bbd_campus.id,
             rating=Decimal("4.6"),
-            is_open=True
+            is_open=True,
+            phone_number="+919876543297",
+            opening_time="09:00",
+            closing_time="22:00",
+            delivery_available=True
         )
         db.add(shop2)
         db.flush()
@@ -168,12 +176,12 @@ def seed_db():
 
         # Food items
         food_items = [
-            FoodItem(name="Samosa (Single)", price=Decimal("15.00"), is_veg=True, is_available=True, category_id=cat1.id, shop_id=shop1.id),
-            FoodItem(name="Paneer Patty", price=Decimal("25.00"), is_veg=True, is_available=True, category_id=cat1.id, shop_id=shop1.id),
-            FoodItem(name="Masala Chai", price=Decimal("10.00"), is_veg=True, is_available=True, category_id=cat2.id, shop_id=shop1.id),
-            FoodItem(name="Cold Coffee", price=Decimal("40.00"), is_veg=True, is_available=True, category_id=cat2.id, shop_id=shop1.id),
-            FoodItem(name="Veg Cheese Pizza (8 inch)", price=Decimal("120.00"), is_veg=True, is_available=True, category_id=cat3.id, shop_id=shop2.id),
-            FoodItem(name="Double Patty Veg Burger", price=Decimal("70.00"), is_veg=True, is_available=True, category_id=cat3.id, shop_id=shop2.id)
+            FoodItem(name="Samosa (Single)", price=Decimal("15.00"), is_veg=True, is_available=True, category_id=cat1.id, shop_id=shop1.id, description="Fried potato filled pastry.", preparation_time=10),
+            FoodItem(name="Paneer Patty", price=Decimal("25.00"), is_veg=True, is_available=True, category_id=cat1.id, shop_id=shop1.id, description="Baked crisp puff with paneer.", preparation_time=12),
+            FoodItem(name="Masala Chai", price=Decimal("10.00"), is_veg=True, is_available=True, category_id=cat2.id, shop_id=shop1.id, description="Brewed milk tea with spices.", preparation_time=5),
+            FoodItem(name="Cold Coffee", price=Decimal("40.00"), is_veg=True, is_available=True, category_id=cat2.id, shop_id=shop1.id, description="Sweet chilled milk coffee.", preparation_time=8),
+            FoodItem(name="Veg Cheese Pizza (8 inch)", price=Decimal("120.00"), is_veg=True, is_available=True, category_id=cat3.id, shop_id=shop2.id, description="Oven fresh cheese pizza.", preparation_time=15),
+            FoodItem(name="Double Patty Veg Burger", price=Decimal("70.00"), is_veg=True, is_available=True, category_id=cat3.id, shop_id=shop2.id, description="Double patty crispy burger.", preparation_time=12)
         ]
         for item in food_items:
             db.add(item)

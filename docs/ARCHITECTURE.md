@@ -129,3 +129,24 @@ The app leverages `@react-navigation/native` with nested Stack and Tab navigator
 ### 5.3 Resilient API Fallback Strategy
 To support end-to-end user evaluation before all backend endpoints are developed, the client uses `src/services/apiService.ts`. If endpoints for listing canteens, fetching menus, checking out, or listing orders return a 404 error, the client catches the request failure and automatically falls back to local memory mock records (`mockData.ts`). User registration, login, and profile fetching (/me) connect to the active backend FastAPI endpoints.
 
+---
+
+## 6. Shopkeeper Mobile App Architecture
+
+The Shopkeeper Android app is built using React Native and TypeScript to manage canteens catalog, menu and category settings, order workflow lifecycles, and sales stats:
+
+### 6.1 Local Storage & Security
+JWT authorization tokens returned on login are saved securely on the handset using `expo-secure-store`. Access is protected via `RoleChecker` guards on the backend, strictly restricting requests to authenticated users with `role = "SHOPKEEPER"`.
+
+### 6.2 Navigation Stack Layout
+The app leverages `@react-navigation/native` with nested Stack and Tab navigators:
+* **Splash Screen**: Session token validation.
+* **Auth Stack**: Includes `Login` screen (blocks non-shopkeeper accounts).
+* **Main Bottom Tabs**:
+  * **Dashboard**: Displays daily sales summaries, pending items counts, and quick task triggers.
+  * **Orders (OrdersStack)**: Leads to `OrdersListScreen` (grouped into segments: New, Active, History) ➜ `OrderDetailScreen` (details of billing breakdown, item quantities, drop-off location, and action buttons like Accept, Reject, Prepare, Ready).
+  * **Menu**: Leads to `MenuManagementScreen` managing food categories and menu items with togglable flags for in-stock status and veg/non-veg.
+  * **Earnings**: Leads to `EarningsScreen` reporting daily, weekly, monthly, and overall commission-deducted payout metrics from the backend.
+  * **Settings**: Leads to `ShopSetupScreen` allowing the shopkeeper to configure their canteens profile (operating hours, contact number, open/closed flags).
+
+

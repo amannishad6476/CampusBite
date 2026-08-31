@@ -163,6 +163,10 @@ Designed to support infinite combinations of cities, campuses, colleges, academi
 | `campus_id` | Foreign Key | REFERENCES `campuses(id)` | Located Campus |
 | `is_open` | BOOLEAN | DEFAULT TRUE | Operating status |
 | `rating` | DECIMAL(3, 2) | DEFAULT 5.0 | Average shop rating |
+| `phone_number` | VARCHAR(20) | Nullable | Canteen phone contact number |
+| `opening_time` | VARCHAR(20) | Nullable | Opening time, e.g. "08:00" |
+| `closing_time` | VARCHAR(20) | Nullable | Closing time, e.g. "20:00" |
+| `delivery_available` | BOOLEAN | DEFAULT TRUE | Delivery availability flag |
 
 #### `food_categories`
 | Column | Type | Constraints | Description |
@@ -182,6 +186,8 @@ Designed to support infinite combinations of cities, campuses, colleges, academi
 | `is_available` | BOOLEAN | DEFAULT TRUE | Stock availability |
 | `category_id` | Foreign Key | REFERENCES `food_categories(id)` | Parent Category |
 | `shop_id` | Foreign Key | REFERENCES `shops(id)` | Parent Shop |
+| `description` | TEXT | Nullable | Details about item ingredients/recipe |
+| `preparation_time` | INT | DEFAULT 15 | Estimated preparation time in minutes |
 
 ---
 
