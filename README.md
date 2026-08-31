@@ -1,6 +1,6 @@
 # CampusBite — Campus Food Delivery Platform
 
-CampusBite is a multi-tenant campus food delivery platform connecting **Students**, **Canteen Shopkeepers**, and **Delivery Partners** within university campuses, managed through an **Admin Control Panel**.
+CampusBite is a multi-tenant campus food delivery platform connecting **Students**, **Canteen Shopkeepers**, and **Delivery Partners** across university colleges, managed through a central **Admin Web Portal**.
 
 ---
 
@@ -27,36 +27,50 @@ CampusBite/
 │
 ├── backend/                 # Python / FastAPI Gateway
 │   ├── app/
-│   ├── tests/               # 40 integration, E2E, and security tests
+│   │   ├── api/             # REST Routers (auth, locations, student, shopkeeper, delivery, admin)
+│   │   ├── core/            # Configuration, database session, security tools
+│   │   ├── models/          # PostgreSQL SQLAlchemy models
+│   │   ├── schemas/         # Pydantic schemas
+│   │   ├── services/        # Business services (PaymentService, NotificationService, RateLimiter)
+│   │   └── scripts/         # Pilot seed data generator (seed_pilot_data.py)
+│   ├── tests/               # 44 integration, E2E, pilot, and security tests
 │   └── alembic/             # Database migrations
 │
-├── docs/                    # Architectural Specifications
+├── docs/                    # Architectural Specifications & Runbooks
 │   ├── ARCHITECTURE.md      # Role mappings, dynamic location configurations, system logic
 │   ├── DATABASE.md          # PostgreSQL tables, ERD, indexes, SQLAlchemy models
-│   └── API.md               # API Endpoints, JSON payloads, responses
+│   ├── API.md               # API Endpoints, JSON payloads, responses
+│   ├── DEPLOYMENT.md        # Production deployment, Gunicorn, PostgreSQL, Nginx, backups
+│   └── PILOT_OPERATIONS.md  # 6-college pilot setup, shop onboarding, delivery dispatch
 │
 └── README.md                # Project handbook (this file)
 ```
 
 ---
 
-## 📐 Dynamic Multi-College Location Architecture
+## 📐 Dynamic Multi-College Pilot Architecture
 
-To avoid hardcoded buildings or campuses, the platform uses a dynamic database-driven location tree managed from the Admin Panel:
+The platform operates across 6 colleges and residential hostels without hardcoding in frontend or backend logic:
 
 * **Academic Location**: `City ➜ Campus ➜ College ➜ Block ➜ Floor ➜ Room`
 * **Residential Location**: `Campus ➜ Hostel ➜ Room`
 
+To seed the 6-college pilot environment on any clean database:
+```bash
+cd backend
+python -m app.scripts.seed_pilot_data
+```
+
 ---
 
-## 🛠️ Verification Commands
+## 🛠️ Verification & Test Commands
 
 ### 1. Backend Test Suite (Pytest)
 ```bash
 cd backend
 python -m pytest
 ```
-*Result: 40/40 tests passing (Auth, Locations, Student, Shopkeeper, Delivery, Admin, Security Regressions, Full E2E Flow).*
+*Result: 44/44 tests passing.*
 
 ### 2. Student Mobile App Check
 ```bash
@@ -84,15 +98,10 @@ npm run build
 
 ---
 
-## ⚙️ Environment Configuration
+## 📚 Operational Documentation
 
-Copy `backend/.env.example` to `backend/.env`:
-```bash
-cd backend
-cp .env.example .env
-```
-Key configuration parameters:
-* `DATABASE_URL`: PostgreSQL connection string (e.g., `postgresql://postgres:postgres@localhost:5432/campusbite`).
-* `SECRET_KEY`: High-entropy 256-bit secret for signing JWT tokens.
-* `ACCESS_TOKEN_EXPIRE_MINUTES`: Token lifetime in minutes.
-* `BACKEND_CORS_ORIGINS`: Allowed web and mobile origins.
+* [Deployment Runbook & PostgreSQL Backups](file:///d:/CampusBite/docs/DEPLOYMENT.md)
+* [Pilot Operations & Shop Onboarding Guide](file:///d:/CampusBite/docs/PILOT_OPERATIONS.md)
+* [System Architecture Specification](file:///d:/CampusBite/docs/ARCHITECTURE.md)
+* [API Reference & Route Specs](file:///d:/CampusBite/docs/API.md)
+* [Database ERD & Schema Specs](file:///d:/CampusBite/docs/DATABASE.md)

@@ -1,11 +1,12 @@
-from pydantic_settings import BaseSettings
-from typing import List, Union
+from pydantic_settings import BaseSettings, SettingsConfigDict
+from typing import List, Union, Optional
 from pydantic import Field, field_validator
 import json
 
 class Settings(BaseSettings):
     PROJECT_NAME: str = "CampusBite"
     API_V1_STR: str = "/api/v1"
+    ENVIRONMENT: str = Field(default="development")  # development, staging, production
     
     # JWT & Authentication settings
     SECRET_KEY: str = Field(default="supersecretkeychangeinproduction12345")
@@ -18,17 +19,25 @@ class Settings(BaseSettings):
     # CORS configuration
     BACKEND_CORS_ORIGINS: Union[List[str], str] = Field(default=["*"])
 
+    # Optional Production Gateway & Provider Keys
+    PAYMENT_GATEWAY_KEY: Optional[str] = Field(default=None)
+    PAYMENT_GATEWAY_SECRET: Optional[str] = Field(default=None)
+    MAPS_API_KEY: Optional[str] = Field(default=None)
+    PUSH_NOTIFICATION_KEY: Optional[str] = Field(default=None)
+
     @field_validator("BACKEND_CORS_ORIGINS", mode="before")
     @classmethod
     def assemble_cors_origins(cls, v: Union[str, List[str]]) -> Union[List[str], str]:
         if isinstance(v, str) and not v.startswith("["):
-            return [i.strip() for i in v.split(",")]
+            return [i.strip() for i in v.split(",") if i.strip()]
         elif isinstance(v, str) and v.startswith("["):
             return json.loads(v)
         return v
 
-    class Config:
-        case_sensitive = True
-        env_file = ".env"
+    model_config = SettingsConfigDict(
+        case_sensitive=True,
+        env_file=".env",
+        extra="ignore"
+    )
 
 settings = Settings()

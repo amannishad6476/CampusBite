@@ -63,6 +63,8 @@ class PaymentService:
         ).hexdigest()
         return hmac.compare_digest(expected_signature, signature)
 
+    verify_payment_signature = verify_razorpay_signature
+
     @staticmethod
     def process_payment_confirmation(
         db: Session,
