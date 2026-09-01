@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
+from sqlalchemy import func
 from app.core.database import get_db
 from app.core.security import verify_password, get_password_hash, create_access_token
 from app.api.deps import get_current_user
@@ -12,7 +13,7 @@ router = APIRouter()
 def register(user_in: UserCreate, db: Session = Depends(get_db)):
     """Register a new user with standard details and role-specific records."""
     # Check for duplicate email
-    email_check = db.query(User).filter(User.email == user_in.email).first()
+    email_check = db.query(User).filter(func.lower(User.email) == func.lower(user_in.email)).first()
     if email_check:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -89,7 +90,7 @@ def register(user_in: UserCreate, db: Session = Depends(get_db)):
 @router.post("/login", response_model=Token)
 def login(login_in: UserLogin, db: Session = Depends(get_db)):
     """Authenticate email and password, returning JWT access token."""
-    user = db.query(User).filter(User.email == login_in.email).first()
+    user = db.query(User).filter(func.lower(User.email) == func.lower(login_in.email)).first()
     if not user or not verify_password(login_in.password, user.password_hash):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,

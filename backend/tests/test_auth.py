@@ -162,6 +162,67 @@ def test_login_invalid_password(client):
     assert "incorrect" in response.json()["detail"].lower()
 
 
+def test_login_nonexistent_email(client):
+    login_payload = {
+        "email": "nonexistent_user@campusbite.test",
+        "password": "Pilot@12345"
+    }
+    response = client.post("/api/v1/auth/login", json=login_payload)
+    assert response.status_code == 400
+    assert "incorrect email or password" in response.json()["detail"].lower()
+
+
+def test_fresh_registered_pilot_user_login(client, test_location):
+    campus_id = test_location["campus_id"]
+    # Register fresh pilot student user
+    register_payload = {
+        "name": "Pilot Student 02",
+        "email": "PilotStudent02@CampusBite.test",
+        "phone": "+919876543999",
+        "password": "Pilot@12345",
+        "role": "STUDENT",
+        "student_details": {
+            "campus_id": campus_id
+        }
+    }
+    reg_response = client.post("/api/v1/auth/register", json=register_payload)
+    assert reg_response.status_code == 201
+    assert reg_response.json()["email"] == "pilotstudent02@campusbite.test"
+
+    # Login with exact lowercase email
+    res_exact = client.post("/api/v1/auth/login", json={
+        "email": "pilotstudent02@campusbite.test",
+        "password": "Pilot@12345"
+    })
+    assert res_exact.status_code == 200
+    assert "access_token" in res_exact.json()
+    assert res_exact.json()["user"]["email"] == "pilotstudent02@campusbite.test"
+
+    # Login with mixed case email
+    res_case = client.post("/api/v1/auth/login", json={
+        "email": "PilotStudent02@CampusBite.test",
+        "password": "Pilot@12345"
+    })
+    assert res_case.status_code == 200
+    assert "access_token" in res_case.json()
+
+    # Login with whitespace padded email
+    res_space = client.post("/api/v1/auth/login", json={
+        "email": "  pilotstudent02@campusbite.test  ",
+        "password": "Pilot@12345"
+    })
+    assert res_space.status_code == 200
+    assert "access_token" in res_space.json()
+
+    # Login with wrong password rejected
+    res_wrong_pw = client.post("/api/v1/auth/login", json={
+        "email": "pilotstudent02@campusbite.test",
+        "password": "WrongPassword@123"
+    })
+    assert res_wrong_pw.status_code == 400
+    assert "incorrect email or password" in res_wrong_pw.json()["detail"].lower()
+
+
 def test_read_me_authenticated(client, test_location):
     campus_id = test_location["campus_id"]
     # Register and login

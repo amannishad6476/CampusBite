@@ -37,6 +37,7 @@ class UserCreate(BaseModel):
     @field_validator("email")
     @classmethod
     def validate_email(cls, v: str) -> str:
+        v = v.strip()
         if "@" not in v or "." not in v:
             raise ValueError("Invalid email format")
         return v.lower()
@@ -44,6 +45,14 @@ class UserCreate(BaseModel):
 class UserLogin(BaseModel):
     email: str
     password: str
+
+    @field_validator("email")
+    @classmethod
+    def validate_email(cls, v: str) -> str:
+        v = v.strip()
+        if "@" not in v or "." not in v:
+            raise ValueError("Invalid email format")
+        return v.lower()
 
 class UserResponse(BaseModel):
     id: str
