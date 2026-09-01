@@ -10,10 +10,50 @@ from app.core.config import settings
 from app.core.database import get_db
 from app.api.routes import auth, locations, student_ops, shopkeeper_ops, delivery_ops, admin_ops
 
+tags_metadata = [
+    {
+        "name": "Authentication",
+        "description": "User authentication, registration, JWT token generation, and profile management.",
+    },
+    {
+        "name": "Locations",
+        "description": "Hierarchical campus location discovery (Campuses, Colleges, Blocks, Hostels).",
+    },
+    {
+        "name": "Student Operations",
+        "description": "Student food ordering, canteen menu browsing, and OTP-secured order tracking.",
+    },
+    {
+        "name": "Shopkeeper Operations",
+        "description": "Canteen management, menu catalog CRUD, order lifecycle transitions, and revenue summaries.",
+    },
+    {
+        "name": "Delivery Partner Operations",
+        "description": "Delivery fleet operations, order claiming, pickup & transit progression, OTP delivery verification, and rider earnings.",
+    },
+    {
+        "name": "Admin Operations",
+        "description": "Administrative control center, campus hierarchy management, vendor approvals/suspensions, order overrides, and audit trails.",
+    },
+    {
+        "name": "System Health",
+        "description": "Liveness probes, service status, and database connectivity checks.",
+    },
+]
+
 app = FastAPI(
-    title=settings.PROJECT_NAME,
+    title="CampusBite API",
+    description="CampusBite REST API gateway connecting Students, Shopkeepers, Delivery Partners, and Admins across campus colleges.",
+    version=settings.VERSION,
+    openapi_tags=tags_metadata,
     openapi_url=f"{settings.API_V1_STR}/openapi.json",
-    description="CampusBite REST API gateway connecting Students, Shopkeepers, Delivery Partners, and Admins."
+    docs_url="/docs",
+    redoc_url="/redoc",
+    contact={
+        "name": "CampusBite Support",
+        "url": "https://campusbite.com",
+        "email": "support@campusbite.com",
+    },
 )
 
 # Set all CORS enabled origins
@@ -86,11 +126,11 @@ app.include_router(
     tags=["Admin Operations"]
 )
 
-@app.get("/")
+@app.get("/", tags=["System Health"])
 def read_root():
     return {"message": f"Welcome to the {settings.PROJECT_NAME} API Gateway"}
 
-@app.get("/health")
+@app.get("/health", tags=["System Health"])
 def health_check():
     return {
         "status": "healthy",
@@ -98,7 +138,7 @@ def health_check():
         "api_version": settings.API_V1_STR
     }
 
-@app.get("/health/db")
+@app.get("/health/db", tags=["System Health"])
 def health_db_check(db: Session = Depends(get_db)):
     """Verifies database connectivity without exposing connection secrets."""
     try:
