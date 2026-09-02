@@ -61,7 +61,7 @@ app = FastAPI(
 
 # Set all CORS enabled origins
 if settings.BACKEND_CORS_ORIGINS:
-    origins = [str(origin) for origin in settings.BACKEND_CORS_ORIGINS]
+    origins = [str(origin).strip().rstrip("/") for origin in settings.BACKEND_CORS_ORIGINS if str(origin).strip()]
     # Handle wildcard vs specific hosts
     app.add_middleware(
         CORSMiddleware,
@@ -69,7 +69,9 @@ if settings.BACKEND_CORS_ORIGINS:
         allow_credentials=True if "*" not in origins else False,
         allow_methods=["*"],
         allow_headers=["*"],
+        expose_headers=["*"],
     )
+
 
 # Global Exception Handlers
 

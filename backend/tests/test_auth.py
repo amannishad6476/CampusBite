@@ -302,3 +302,32 @@ def test_role_authorization_enforced(client):
     # Check admin access to student-only endpoint (should be forbidden since admin is not in allowed list)
     response_admin_to_student = client.get("/api/v1/test-student-only", headers=headers_admin)
     assert response_admin_to_student.status_code == 403
+
+
+def test_cors_preflight_production_vercel_origin(client):
+    """Verify that OPTIONS preflight requests from Vercel receive valid CORS headers."""
+    response = client.options(
+        "/api/v1/auth/login",
+        headers={
+            "Origin": "https://campusbite-web-nine.vercel.app",
+            "Access-Control-Request-Method": "POST",
+            "Access-Control-Request-Headers": "content-type,authorization"
+        }
+    )
+    assert response.status_code == 200
+    assert response.headers.get("access-control-allow-origin") == "https://campusbite-web-nine.vercel.app"
+    assert response.headers.get("access-control-allow-credentials") == "true"
+
+
+def test_cors_disallowed_origin_rejected(client):
+    """Verify that untrusted origins do NOT receive access-control-allow-origin headers."""
+    response = client.options(
+        "/api/v1/auth/login",
+        headers={
+            "Origin": "https://unauthorized-malicious-origin.com",
+            "Access-Control-Request-Method": "POST",
+            "Access-Control-Request-Headers": "content-type"
+        }
+    )
+    assert response.headers.get("access-control-allow-origin") is None
+

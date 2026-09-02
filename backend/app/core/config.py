@@ -17,8 +17,15 @@ class Settings(BaseSettings):
     # PostgreSQL Database settings
     DATABASE_URL: str = Field(default="postgresql://postgres:postgres@localhost:5432/campusbite")
     
-    # CORS configuration
-    BACKEND_CORS_ORIGINS: Union[List[str], str] = Field(default=["*"])
+    # CORS configuration (Allowed frontend web/mobile origins)
+    BACKEND_CORS_ORIGINS: Union[List[str], str] = Field(default=[
+        "https://campusbite-web-nine.vercel.app",
+        "https://admin.campusbite.com",
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+    ])
 
     @field_validator("DATABASE_URL", mode="before")
     @classmethod
@@ -38,10 +45,14 @@ class Settings(BaseSettings):
     @classmethod
     def assemble_cors_origins(cls, v: Union[str, List[str]]) -> Union[List[str], str]:
         if isinstance(v, str) and not v.startswith("["):
-            return [i.strip() for i in v.split(",") if i.strip()]
+            return [i.strip().rstrip("/") for i in v.split(",") if i.strip()]
         elif isinstance(v, str) and v.startswith("["):
-            return json.loads(v)
+            parsed = json.loads(v)
+            return [str(i).strip().rstrip("/") for i in parsed if str(i).strip()]
+        elif isinstance(v, list):
+            return [str(i).strip().rstrip("/") for i in v if str(i).strip()]
         return v
+
 
     model_config = SettingsConfigDict(
         case_sensitive=True,
