@@ -1,0 +1,10 @@
+# Exclude test suites, local caches, databases, and local environment files from Vercel deployment
+tests/
+.pytest_cache/
+campusbite.db
+.env
+.env.*
+__pycache__/
+*.py[cod]
+*.sqlite
+*.db
