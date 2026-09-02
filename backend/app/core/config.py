@@ -3,6 +3,15 @@ from typing import List, Union, Optional
 from pydantic import Field, field_validator
 import json
 
+MANDATORY_CORS_ORIGINS: List[str] = [
+    "https://campusbite-web-nine.vercel.app",
+    "https://admin.campusbite.com",
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+]
+
 class Settings(BaseSettings):
     PROJECT_NAME: str = "CampusBite"
     VERSION: str = "1.0.0"
@@ -18,14 +27,8 @@ class Settings(BaseSettings):
     DATABASE_URL: str = Field(default="postgresql://postgres:postgres@localhost:5432/campusbite")
     
     # CORS configuration (Allowed frontend web/mobile origins)
-    BACKEND_CORS_ORIGINS: Union[List[str], str] = Field(default=[
-        "https://campusbite-web-nine.vercel.app",
-        "https://admin.campusbite.com",
-        "http://localhost:5173",
-        "http://127.0.0.1:5173",
-        "http://localhost:3000",
-        "http://127.0.0.1:3000",
-    ])
+    BACKEND_CORS_ORIGINS: Union[List[str], str] = Field(default=MANDATORY_CORS_ORIGINS)
+
 
     @field_validator("DATABASE_URL", mode="before")
     @classmethod
@@ -33,7 +36,6 @@ class Settings(BaseSettings):
         if isinstance(v, str) and v.startswith("postgres://"):
             return v.replace("postgres://", "postgresql://", 1)
         return v
-
 
     # Optional Production Gateway & Provider Keys
     PAYMENT_GATEWAY_KEY: Optional[str] = Field(default=None)
@@ -43,15 +45,33 @@ class Settings(BaseSettings):
 
     @field_validator("BACKEND_CORS_ORIGINS", mode="before")
     @classmethod
-    def assemble_cors_origins(cls, v: Union[str, List[str]]) -> Union[List[str], str]:
-        if isinstance(v, str) and not v.startswith("["):
-            return [i.strip().rstrip("/") for i in v.split(",") if i.strip()]
-        elif isinstance(v, str) and v.startswith("["):
-            parsed = json.loads(v)
-            return [str(i).strip().rstrip("/") for i in parsed if str(i).strip()]
+    def assemble_cors_origins(cls, v: Union[str, List[str]]) -> List[str]:
+        origins_list: List[str] = []
+        if isinstance(v, str):
+            cleaned_str = v.strip().strip('"').strip("'")
+            if cleaned_str.startswith("[") and cleaned_str.endswith("]"):
+                try:
+                    parsed = json.loads(cleaned_str)
+                    origins_list = [str(i) for i in parsed]
+                except Exception:
+                    origins_list = [cleaned_str]
+            else:
+                origins_list = cleaned_str.split(",")
         elif isinstance(v, list):
-            return [str(i).strip().rstrip("/") for i in v if str(i).strip()]
-        return v
+            origins_list = [str(i) for i in v]
+
+        sanitized = set()
+        for item in origins_list:
+            cleaned = item.strip().strip('"').strip("'").rstrip("/")
+            if cleaned:
+                sanitized.add(cleaned)
+
+        # Unconditionally guarantee essential production origins
+        for mandatory in MANDATORY_CORS_ORIGINS:
+            sanitized.add(mandatory)
+
+        return sorted(list(sanitized))
+
 
 
     model_config = SettingsConfigDict(

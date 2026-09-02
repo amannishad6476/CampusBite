@@ -60,17 +60,22 @@ app = FastAPI(
 )
 
 # Set all CORS enabled origins
-if settings.BACKEND_CORS_ORIGINS:
-    origins = [str(origin).strip().rstrip("/") for origin in settings.BACKEND_CORS_ORIGINS if str(origin).strip()]
-    # Handle wildcard vs specific hosts
-    app.add_middleware(
-        CORSMiddleware,
-        allow_origins=origins,
-        allow_credentials=True if "*" not in origins else False,
-        allow_methods=["*"],
-        allow_headers=["*"],
-        expose_headers=["*"],
-    )
+origins = [str(origin).strip().strip('"').strip("'").rstrip("/") for origin in settings.BACKEND_CORS_ORIGINS if str(origin).strip()]
+if "https://campusbite-web-nine.vercel.app" not in origins:
+    origins.append("https://campusbite-web-nine.vercel.app")
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_origin_regex=r"^https:\/\/campusbite([a-zA-Z0-9\-_]+)?\.vercel\.app$",
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+    expose_headers=["*"],
+    max_age=600,
+)
+
+
 
 
 # Global Exception Handlers

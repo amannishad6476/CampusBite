@@ -331,3 +331,19 @@ def test_cors_disallowed_origin_rejected(client):
     )
     assert response.headers.get("access-control-allow-origin") is None
 
+
+def test_cors_preflight_vercel_preview_subdomain(client):
+    """Verify that OPTIONS preflight requests from Vercel preview subdomains receive valid CORS headers."""
+    response = client.options(
+        "/api/v1/auth/login",
+        headers={
+            "Origin": "https://campusbite-preview-abc123.vercel.app",
+            "Access-Control-Request-Method": "POST",
+            "Access-Control-Request-Headers": "content-type,authorization"
+        }
+    )
+    assert response.status_code == 200
+    assert response.headers.get("access-control-allow-origin") == "https://campusbite-preview-abc123.vercel.app"
+    assert response.headers.get("access-control-allow-credentials") == "true"
+
+
