@@ -68,15 +68,21 @@ if settings.BACKEND_CORS_ORIGINS:
         allow_headers=["*"],
     )
 
+import logging
+
+logger = logging.getLogger("campusbite.main")
+
 # Global Exception Handlers
 
 @app.exception_handler(SQLAlchemyError)
 def sqlalchemy_exception_handler(request: Request, exc: SQLAlchemyError):
     """Global handler for intercepting database transaction/integrity errors."""
+    logger.error(f"Global SQLAlchemyError on {request.method} {request.url}: {exc}", exc_info=True)
     return JSONResponse(
         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
         content={"detail": "Database connection or transaction failure. Action aborted."}
     )
+
 
 @app.exception_handler(RequestValidationError)
 def validation_exception_handler(request: Request, exc: RequestValidationError):

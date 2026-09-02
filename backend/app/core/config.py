@@ -20,6 +20,14 @@ class Settings(BaseSettings):
     # CORS configuration
     BACKEND_CORS_ORIGINS: Union[List[str], str] = Field(default=["*"])
 
+    @field_validator("DATABASE_URL", mode="before")
+    @classmethod
+    def assemble_database_url(cls, v: str) -> str:
+        if isinstance(v, str) and v.startswith("postgres://"):
+            return v.replace("postgres://", "postgresql://", 1)
+        return v
+
+
     # Optional Production Gateway & Provider Keys
     PAYMENT_GATEWAY_KEY: Optional[str] = Field(default=None)
     PAYMENT_GATEWAY_SECRET: Optional[str] = Field(default=None)
