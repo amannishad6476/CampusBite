@@ -14,7 +14,7 @@ export const adminService = {
 
   // 2. Locations (Campuses)
   async getCampuses(): Promise<Campus[]> {
-    const response = await apiClient.get<Campus[]>('/locations/campuses');
+    const response = await apiClient.get<Campus[]>('/campuses');
     return response.data;
   },
   async createCampus(data: Partial<Campus>): Promise<Campus> {
@@ -31,7 +31,7 @@ export const adminService = {
 
   // 3. Locations (Colleges)
   async getColleges(campusId: number): Promise<College[]> {
-    const response = await apiClient.get<College[]>(`/locations/colleges?campus_id=${campusId}`);
+    const response = await apiClient.get<College[]>(`/colleges?campus_id=${campusId}`);
     return response.data;
   },
   async createCollege(name: string, campusId: number): Promise<College> {
@@ -48,7 +48,7 @@ export const adminService = {
 
   // 4. Locations (Blocks)
   async getBlocks(campusId: number): Promise<Block[]> {
-    const response = await apiClient.get<Block[]>(`/locations/blocks?campus_id=${campusId}`);
+    const response = await apiClient.get<Block[]>(`/blocks?campus_id=${campusId}`);
     return response.data;
   },
   async createBlock(name: string, campusId: number): Promise<Block> {
@@ -65,7 +65,7 @@ export const adminService = {
 
   // 5. Locations (Hostels)
   async getHostels(campusId: number): Promise<Hostel[]> {
-    const response = await apiClient.get<Hostel[]>(`/locations/hostels?campus_id=${campusId}`);
+    const response = await apiClient.get<Hostel[]>(`/hostels?campus_id=${campusId}`);
     return response.data;
   },
   async createHostel(name: string, campusId: number): Promise<Hostel> {

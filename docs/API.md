@@ -1,7 +1,9 @@
 # CampusBite — API Specifications
 
 All resources are served relative to the API gateway v1 base URL:
-`http://localhost:8000/api/v1`
+* **Live Production (Railway)**: `https://brave-tranquility-production-a3f8.up.railway.app/api/v1`
+* **Local Development**: `http://localhost:8000/api/v1`
+
 
 ---
 
