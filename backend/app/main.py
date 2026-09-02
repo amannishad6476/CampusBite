@@ -49,7 +49,7 @@ app = FastAPI(
     description="CampusBite REST API gateway connecting Students, Shopkeepers, Delivery Partners, and Admins across campus colleges.",
     version=settings.VERSION,
     openapi_tags=tags_metadata,
-    openapi_url=f"{settings.API_V1_STR}/openapi.json",
+    openapi_url="/openapi.json",
     docs_url="/docs",
     redoc_url="/redoc",
     contact={
@@ -141,6 +141,11 @@ app.include_router(
 @app.get("/", tags=["System Health"])
 def read_root():
     return {"message": f"Welcome to the {settings.PROJECT_NAME} API Gateway"}
+
+@app.get(f"{settings.API_V1_STR}/openapi.json", include_in_schema=False, tags=["System Health"])
+def get_openapi_v1():
+    """Exposes OpenAPI specification under /api/v1/openapi.json for legacy clients."""
+    return app.openapi()
 
 @app.get("/health", tags=["System Health"])
 def health_check():
