@@ -2,6 +2,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 from typing import List, Union, Optional
 from pydantic import Field, field_validator
 import json
+import re
 
 MANDATORY_CORS_ORIGINS: List[str] = [
     "https://campusbite-web-nine.vercel.app",
@@ -33,8 +34,11 @@ class Settings(BaseSettings):
     @field_validator("DATABASE_URL", mode="before")
     @classmethod
     def assemble_database_url(cls, v: str) -> str:
-        if isinstance(v, str) and v.startswith("postgres://"):
-            return v.replace("postgres://", "postgresql://", 1)
+        if isinstance(v, str):
+            if v.startswith("postgres://"):
+                v = v.replace("postgres://", "postgresql://", 1)
+            if "ep-sweet-cell-avse0t8c" in v and "/neondb" in v:
+                v = re.sub(r'/neondb(\?|$)', r'/campusbite\1', v)
         return v
 
     # Optional Production Gateway & Provider Keys
