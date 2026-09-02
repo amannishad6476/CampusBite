@@ -1,6 +1,7 @@
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, ConfigDict
 from typing import Optional
 from datetime import datetime
+
 
 class StudentDetailsSchema(BaseModel):
     campus_id: int
@@ -55,6 +56,8 @@ class UserLogin(BaseModel):
         return v.lower()
 
 class UserResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     id: str
     name: str
     email: str
@@ -64,8 +67,6 @@ class UserResponse(BaseModel):
     created_at: datetime
     updated_at: datetime
 
-    class Config:
-        from_attributes = True
 
 class Token(BaseModel):
     access_token: str

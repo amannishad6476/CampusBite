@@ -1,3 +1,4 @@
+import logging
 from fastapi import FastAPI, Request, Depends, status
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
@@ -9,6 +10,8 @@ from sqlalchemy.exc import SQLAlchemyError
 from app.core.config import settings
 from app.core.database import get_db
 from app.api.routes import auth, locations, student_ops, shopkeeper_ops, delivery_ops, admin_ops
+
+logger = logging.getLogger("campusbite.main")
 
 tags_metadata = [
     {
@@ -68,23 +71,19 @@ if settings.BACKEND_CORS_ORIGINS:
         allow_headers=["*"],
     )
 
-import logging
-
-logger = logging.getLogger("campusbite.main")
-
 # Global Exception Handlers
 
 @app.exception_handler(SQLAlchemyError)
 def sqlalchemy_exception_handler(request: Request, exc: SQLAlchemyError):
     """Global handler for intercepting database transaction/integrity errors."""
-    logger.error(f"Global SQLAlchemyError on {request.method} {request.url}: {exc}", exc_info=True)
+    logger.error(f"Global SQLAlchemyError on {request.method} {request.url.path}: {exc.__class__.__name__}: {exc}", exc_info=True)
     return JSONResponse(
         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
         content={"detail": "Database connection or transaction failure. Action aborted."}
     )
 
-
 @app.exception_handler(RequestValidationError)
+
 def validation_exception_handler(request: Request, exc: RequestValidationError):
     """Global handler for capturing input validation issues."""
     return JSONResponse(
