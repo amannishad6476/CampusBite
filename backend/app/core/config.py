@@ -44,8 +44,26 @@ class Settings(BaseSettings):
     # Optional Production Gateway & Provider Keys
     PAYMENT_GATEWAY_KEY: Optional[str] = Field(default=None)
     PAYMENT_GATEWAY_SECRET: Optional[str] = Field(default=None)
+    CASHFREE_APP_ID: Optional[str] = Field(default=None)
+    CASHFREE_SECRET_KEY: Optional[str] = Field(default=None)
+    CASHFREE_API_VERSION: str = Field(default="2023-08-01")
+    CASHFREE_ENVIRONMENT: str = Field(default="SANDBOX")  # SANDBOX or PRODUCTION
     MAPS_API_KEY: Optional[str] = Field(default=None)
     PUSH_NOTIFICATION_KEY: Optional[str] = Field(default=None)
+
+    @property
+    def cashfree_client_id(self) -> Optional[str]:
+        return self.CASHFREE_APP_ID or self.PAYMENT_GATEWAY_KEY
+
+    @property
+    def cashfree_client_secret(self) -> Optional[str]:
+        return self.CASHFREE_SECRET_KEY or self.PAYMENT_GATEWAY_SECRET
+
+    @property
+    def cashfree_base_url(self) -> str:
+        if str(self.CASHFREE_ENVIRONMENT).upper() == "PRODUCTION":
+            return "https://api.cashfree.com/pg"
+        return "https://sandbox.cashfree.com/pg"
 
     @field_validator("BACKEND_CORS_ORIGINS", mode="before")
     @classmethod

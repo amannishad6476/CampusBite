@@ -1,5 +1,6 @@
 import * as SecureStore from 'expo-secure-store';
-import { User, OrderReview, AppNotification } from '../types';
+import { User, OrderReview, AppNotification, DeliveryAddress } from '../types';
+
 
 const TOKEN_KEY = 'campusbite_access_token';
 const USER_KEY = 'campusbite_user_data';
@@ -126,8 +127,26 @@ export async function saveStoredNotifications(notifs: AppNotification[]): Promis
   await setItem(NOTIFICATIONS_KEY, JSON.stringify(notifs));
 }
 
+const DEFAULT_ADDRESS_KEY = 'campusbite_default_delivery_address';
+
+export async function saveDefaultDeliveryAddress(address: DeliveryAddress): Promise<void> {
+  await setItem(DEFAULT_ADDRESS_KEY, JSON.stringify(address));
+}
+
+export async function getDefaultDeliveryAddress(): Promise<DeliveryAddress | null> {
+  const val = await getItem(DEFAULT_ADDRESS_KEY);
+  if (!val) return null;
+  try {
+    return JSON.parse(val) as DeliveryAddress;
+  } catch {
+    return null;
+  }
+}
+
 export async function clearAuthSession(): Promise<void> {
   await deleteToken();
   await deleteUser();
   await deleteItem(CAMPUS_KEY);
+  await deleteItem(DEFAULT_ADDRESS_KEY);
 }
+

@@ -9,6 +9,8 @@ import {
   Order,
   OrderCreatePayload,
   User,
+  PaymentSessionResponse,
+  PaymentVerificationResponse,
 } from '../types';
 
 export const apiService = {
@@ -150,6 +152,35 @@ export const apiService = {
       throw new Error(parseApiError(error));
     }
   },
+
+  /**
+   * Initialize a server-side Cashfree payment session for an order
+   */
+  async createPaymentSession(orderId: string): Promise<PaymentSessionResponse> {
+    try {
+      const response = await apiClient.post<PaymentSessionResponse>(
+        `/students/orders/${orderId}/create-payment`
+      );
+      return response.data;
+    } catch (error) {
+      throw new Error(parseApiError(error));
+    }
+  },
+
+  /**
+   * Verify order payment status with Cashfree via backend
+   */
+  async verifyPayment(orderId: string): Promise<PaymentVerificationResponse> {
+    try {
+      const response = await apiClient.post<PaymentVerificationResponse>(
+        `/students/orders/${orderId}/verify-payment`
+      );
+      return response.data;
+    } catch (error) {
+      throw new Error(parseApiError(error));
+    }
+  },
 };
 
 export default apiService;
+

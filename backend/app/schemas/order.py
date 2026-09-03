@@ -61,3 +61,21 @@ class StudentOrderResponse(OrderResponse):
     Delivery partners and shopkeepers receive OrderResponse which strips this field.
     """
     otp: str
+
+class PaymentSessionResponse(BaseModel):
+    order_id: str
+    order_number: str
+    cf_order_id: Optional[str] = None
+    payment_session_id: str
+    environment: str
+    amount: Decimal
+    currency: str = "INR"
+    qr_data: Optional[str] = None
+
+class PaymentVerificationResponse(BaseModel):
+    order_id: str
+    payment_status: str  # PAID, PENDING, FAILED
+    order_status: str
+    transaction_ref: Optional[str] = None
+    message: str
+

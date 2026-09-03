@@ -9,7 +9,9 @@ from app.core.database import get_db
 from app.api.deps import get_current_user
 from app.models.models import User, Shop, FoodItem, Order, OrderItem
 from app.schemas.shop import ShopResponse, FoodItemResponse
-from app.schemas.order import OrderCreate, StudentOrderResponse
+from app.schemas.order import OrderCreate, StudentOrderResponse, PaymentSessionResponse, PaymentVerificationResponse
+from app.services.payment_service import CashfreeService
+
 
 router = APIRouter()
 
@@ -129,7 +131,7 @@ def place_order(
         discount=Decimal("0.00"),
         tax=tax,
         total_amount=total_amount,
-        payment_status="PAID" if order_in.payment_method == "ONLINE" else "PENDING",
+        payment_status="PENDING",
         payment_method=order_in.payment_method,
         delivery_address=delivery_addr_dict,
         otp=otp
@@ -198,3 +200,56 @@ def get_order_details(
     shop = db.query(Shop).filter(Shop.id == order.shop_id).first()
     order.shop_name = shop.name if shop else "Campus Canteen"
     return order
+
+
+@router.post("/orders/{order_id}/create-payment", response_model=PaymentSessionResponse)
+def create_order_payment(
+    order_id: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Initializes a secure server-side Cashfree payment session for an order.
+    Returns safe payment session details for the mobile SDK/checkout.
+    """
+    order = db.query(Order).filter(Order.id == order_id).first()
+    if not order:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Order not found."
+        )
+
+    if order.student_id != current_user.id and current_user.role != "ADMIN":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Access denied: You are not authorized to pay for this order."
+        )
+
+    return CashfreeService.create_payment_session(db, order, current_user)
+
+
+@router.post("/orders/{order_id}/verify-payment", response_model=PaymentVerificationResponse)
+def verify_order_payment(
+    order_id: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Authoritative server-side verification of order payment status via Cashfree.
+    Synchronizes payment status with the order record.
+    """
+    order = db.query(Order).filter(Order.id == order_id).first()
+    if not order:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Order not found."
+        )
+
+    if order.student_id != current_user.id and current_user.role != "ADMIN":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Access denied: You are not authorized to verify this order."
+        )
+
+    return CashfreeService.verify_order_payment(db, order)
+

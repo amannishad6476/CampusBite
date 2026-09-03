@@ -176,3 +176,23 @@ export interface AppNotification {
   type: 'ORDER' | 'SYSTEM' | 'PROMOTION';
   orderId?: string;
 }
+
+export interface PaymentSessionResponse {
+  order_id: string;
+  order_number: string;
+  cf_order_id?: string | null;
+  payment_session_id: string;
+  environment: 'SANDBOX' | 'PRODUCTION';
+  amount: number;
+  currency: string;
+  qr_data?: string | null;
+}
+
+export interface PaymentVerificationResponse {
+  order_id: string;
+  payment_status: 'PAID' | 'PENDING' | 'FAILED';
+  order_status: OrderStatus;
+  transaction_ref?: string | null;
+  message: string;
+}
+
