@@ -7,10 +7,12 @@ export interface User {
   is_active: boolean;
   created_at: string;
   updated_at: string;
+  student?: Student | null;
+  student_details?: Student | null;
 }
 
 export interface Student {
-  user_id: string;
+  user_id?: string;
   campus_id: number;
   college_id?: number | null;
   block_id?: number | null;
@@ -24,6 +26,7 @@ export interface City {
   id: number;
   name: string;
   state: string;
+  is_active?: boolean;
 }
 
 export interface Campus {
@@ -31,6 +34,7 @@ export interface Campus {
   name: string;
   address: string;
   city_id: number;
+  is_active?: boolean;
 }
 
 export interface College {
@@ -60,6 +64,11 @@ export interface Shop {
   rating: number;
   is_open: boolean;
   campus_id: number;
+  phone_number?: string | null;
+  opening_time?: string | null;
+  closing_time?: string | null;
+  delivery_available?: boolean;
+  status?: string;
 }
 
 export interface FoodCategory {
@@ -77,12 +86,37 @@ export interface FoodItem {
   is_available: boolean;
   category_id: number;
   shop_id: string;
+  description?: string | null;
+  preparation_time?: number;
 }
 
 export interface CartItem {
   food_item: FoodItem;
   quantity: number;
   notes?: string;
+}
+
+export interface DeliveryAddress {
+  campus_name: string;
+  college_name?: string | null;
+  block_name?: string | null;
+  hostel_name?: string | null;
+  floor_level?: string | null;
+  room_number?: string | null;
+  phone: string;
+}
+
+export interface OrderItemCreate {
+  food_item_id: string;
+  quantity: number;
+  notes?: string | null;
+}
+
+export interface OrderCreatePayload {
+  shop_id: string;
+  delivery_address: DeliveryAddress;
+  payment_method: 'COD' | 'ONLINE';
+  items: OrderItemCreate[];
 }
 
 export interface OrderItem {
@@ -93,13 +127,24 @@ export interface OrderItem {
   notes?: string | null;
 }
 
+export type OrderStatus =
+  | 'PENDING'
+  | 'PLACED'
+  | 'ACCEPTED'
+  | 'PREPARING'
+  | 'READY_FOR_PICKUP'
+  | 'PICKED_UP'
+  | 'OUT_FOR_DELIVERY'
+  | 'DELIVERED'
+  | 'CANCELLED';
+
 export interface Order {
   id: string;
   order_number: string;
   student_id: string;
   shop_id: string;
-  shop_name: string; // snapshot for UI ease
-  status: 'PENDING' | 'ACCEPTED' | 'PREPARING' | 'READY_FOR_PICKUP' | 'PICKED_UP' | 'OUT_FOR_DELIVERY' | 'DELIVERED' | 'CANCELLED';
+  shop_name?: string | null;
+  status: OrderStatus;
   subtotal: number;
   delivery_fee: number;
   discount: number;
@@ -107,16 +152,27 @@ export interface Order {
   total_amount: number;
   payment_status: 'PENDING' | 'PAID' | 'FAILED' | 'REFUNDED';
   payment_method: 'COD' | 'ONLINE';
-  delivery_address: {
-    campus_name: string;
-    college_name?: string | null;
-    block_name?: string | null;
-    hostel_name?: string | null;
-    floor_level?: string | null;
-    room_number?: string | null;
-    phone: string;
-  };
+  delivery_address: DeliveryAddress;
   otp: string;
   created_at: string;
+  updated_at?: string;
   items: OrderItem[];
+}
+
+export interface OrderReview {
+  order_id: string;
+  shop_id: string;
+  rating_shop: number;
+  review_text_shop?: string;
+  created_at: string;
+}
+
+export interface AppNotification {
+  id: string;
+  title: string;
+  message: string;
+  timestamp: string;
+  isRead: boolean;
+  type: 'ORDER' | 'SYSTEM' | 'PROMOTION';
+  orderId?: string;
 }

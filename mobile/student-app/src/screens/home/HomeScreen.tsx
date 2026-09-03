@@ -1,92 +1,142 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   TextInput,
   TouchableOpacity,
-  ScrollView,
   FlatList,
   SafeAreaView,
   StatusBar,
-  Platform
+  RefreshControl,
+  ActivityIndicator,
+  ScrollView,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../context/AuthContext';
+import { useNotifications } from '../../context/NotificationContext';
 import apiService from '../../services/apiService';
 import { Shop, Campus } from '../../types';
-import { Ionicons } from '@expo/vector-icons';
+
+const CATEGORIES = [
+  { id: 'all', name: 'All Canteens', icon: 'restaurant' },
+  { id: 'quick', name: 'Quick Bites', icon: 'fast-food' },
+  { id: 'meals', name: 'Meals & Thalis', icon: 'nutrition' },
+  { id: 'beverages', name: 'Chai & Drinks', icon: 'cafe' },
+  { id: 'snacks', name: 'Evening Snacks', icon: 'pizza' },
+];
 
 export default function HomeScreen({ navigation }: any) {
-  const { user } = useAuth();
+  const { user, selectedCampusId } = useAuth();
+  const { unreadCount } = useNotifications();
+
   const [campus, setCampus] = useState<Campus | null>(null);
   const [shops, setShops] = useState<Shop[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const [selectedCategory, setSelectedCategory] = useState('all');
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
-  // Dynamic Categories list
-  const categories = ['All', 'Quick Bites', 'Beverages', 'Pizzas & Burgers', 'Thalis & Meals'];
+  const loadData = useCallback(async () => {
+    setErrorMsg(null);
+    try {
+      const campuses = await apiService.getCampuses();
+      const current = campuses.find((c) => c.id === selectedCampusId) || campuses[0] || null;
+      setCampus(current);
+
+      const shopsData = await apiService.getShops(selectedCampusId);
+      setShops(shopsData);
+    } catch (err: any) {
+      setErrorMsg(err.message || 'Unable to load campus canteens.');
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  }, [selectedCampusId]);
 
   useEffect(() => {
-    async function loadHomeDetails() {
-      // Find campus ID from user profile or default to 1
-      const studentDetails = (user as any)?.student_details;
-      const campusId = studentDetails?.campus_id || 1;
-      
-      const campusData = await apiService.getCampuses();
-      const current = campusData.find((c) => c.id === campusId);
-      if (current) {
-        setCampus(current);
-      }
+    setLoading(true);
+    loadData();
+  }, [loadData]);
 
-      const shopsData = await apiService.getShops(campusId);
-      setShops(shopsData);
-    }
-    loadHomeDetails();
-  }, [user]);
+  const onRefresh = () => {
+    setRefreshing(true);
+    loadData();
+  };
 
-  // Filter canteens based on search and category filters
+  // Filter canteens based on search and category
   const filteredShops = shops.filter((shop) => {
-    const matchesSearch = shop.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
+    const matchesSearch =
+      shop.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       (shop.description && shop.description.toLowerCase().includes(searchQuery.toLowerCase()));
-    
-    // In a real application, category matches items, but here we can list all open ones or filter
-    return matchesSearch;
+
+    if (!matchesSearch) return false;
+    if (selectedCategory === 'all') return true;
+    if (selectedCategory === 'quick') {
+      return (
+        shop.name.toLowerCase().includes('bite') ||
+        shop.name.toLowerCase().includes('fast') ||
+        shop.name.toLowerCase().includes('snack')
+      );
+    }
+    if (selectedCategory === 'beverages') {
+      return (
+        shop.name.toLowerCase().includes('cafe') ||
+        shop.name.toLowerCase().includes('tea') ||
+        shop.name.toLowerCase().includes('juice')
+      );
+    }
+    return true;
   });
 
-  const renderShopItem = ({ item }: { item: Shop }) => (
+  const renderShopCard = ({ item }: { item: Shop }) => (
     <TouchableOpacity
       style={styles.shopCard}
       onPress={() => navigation.navigate('ShopMenu', { shopId: item.id, shopName: item.name })}
+      activeOpacity={0.8}
     >
-      <View style={styles.shopImagePlaceholder}>
-        <Ionicons name="restaurant-outline" size={40} color="#FF5722" />
-        {!item.is_open && (
-          <View style={styles.closedOverlay}>
-            <Text style={styles.closedText}>CLOSED</Text>
-          </View>
-        )}
+      <View style={styles.shopImageArea}>
+        <View style={styles.canteenIconCircle}>
+          <Ionicons name="storefront" size={36} color="#FF5722" />
+        </View>
+        <View style={[styles.statusBadge, item.is_open ? styles.openBadge : styles.closedBadge]}>
+          <View style={[styles.statusDot, { backgroundColor: item.is_open ? '#10B981' : '#EF4444' }]} />
+          <Text style={[styles.statusBadgeText, { color: item.is_open ? '#047857' : '#B91C1C' }]}>
+            {item.is_open ? 'OPEN NOW' : 'CLOSED'}
+          </Text>
+        </View>
       </View>
-      <View style={styles.shopDetails}>
-        <View style={styles.shopHeaderRow}>
-          <Text style={styles.shopName}>{item.name}</Text>
+
+      <View style={styles.shopInfo}>
+        <View style={styles.shopTitleRow}>
+          <Text style={styles.shopName} numberOfLines={1}>
+            {item.name}
+          </Text>
           <View style={styles.ratingBadge}>
-            <Ionicons name="star" size={14} color="#FFC107" />
-            <Text style={styles.ratingText}>{item.rating}</Text>
+            <Ionicons name="star" size={13} color="#FFFFFF" />
+            <Text style={styles.ratingText}>{Number(item.rating || 5.0).toFixed(1)}</Text>
           </View>
         </View>
-        
-        <Text style={styles.shopDescription} numberOfLines={1}>
-          {item.description || 'No description available.'}
+
+        <Text style={styles.shopDescription} numberOfLines={2}>
+          {item.description || 'Fresh food, quick campus delivery & hygienic preparation.'}
         </Text>
-        
-        <View style={styles.shopFooterRow}>
-          <View style={styles.infoLabel}>
-            <Ionicons name="time-outline" size={14} color="#757575" />
-            <Text style={styles.infoValue}>15-20 mins</Text>
+
+        <View style={styles.shopMetaRow}>
+          <View style={styles.metaItem}>
+            <Ionicons name="time-outline" size={14} color="#64748B" />
+            <Text style={styles.metaText}>15-25 mins</Text>
           </View>
-          <View style={[styles.infoLabel, { marginLeft: 16 }]}>
-            <Ionicons name="bicycle-outline" size={14} color="#757575" />
-            <Text style={styles.infoValue}>Free Delivery</Text>
+          <View style={styles.metaDivider} />
+          <View style={styles.metaItem}>
+            <Ionicons name="bicycle-outline" size={14} color="#64748B" />
+            <Text style={styles.metaText}>Hostel & Class</Text>
+          </View>
+          <View style={styles.metaDivider} />
+          <View style={styles.metaItem}>
+            <Ionicons name="shield-checkmark-outline" size={14} color="#10B981" />
+            <Text style={[styles.metaText, { color: '#047857', fontWeight: '600' }]}>OTP Verified</Text>
           </View>
         </View>
       </View>
@@ -95,92 +145,145 @@ export default function HomeScreen({ navigation }: any) {
 
   return (
     <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor="#ffffff" />
+      <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
+
+      {/* Top Header */}
       <View style={styles.topHeader}>
-        <View style={styles.locationContainer}>
-          <Ionicons name="location" size={20} color="#FF5722" />
-          <View style={styles.locationTextContainer}>
-            <Text style={styles.locationLabel}>Delivering To</Text>
-            <Text style={styles.campusName} numberOfLines={1}>
-              {campus ? campus.name : 'Loading location...'}
-            </Text>
+        <TouchableOpacity
+          style={styles.locationSelector}
+          onPress={() => navigation.navigate('CampusSelect')}
+          activeOpacity={0.7}
+        >
+          <View style={styles.locationIconCircle}>
+            <Ionicons name="location" size={18} color="#FF5722" />
           </View>
-        </View>
-        <TouchableOpacity onPress={() => navigation.navigate('ProfileTab')}>
-          <View style={styles.avatarCircle}>
-            <Text style={styles.avatarText}>
-              {user ? user.name.charAt(0).toUpperCase() : 'S'}
+          <View style={styles.locationTextCol}>
+            <View style={styles.deliverToRow}>
+              <Text style={styles.deliverToLabel}>Deliver to</Text>
+              <Ionicons name="chevron-down" size={14} color="#FF5722" style={{ marginLeft: 2 }} />
+            </View>
+            <Text style={styles.campusNameText} numberOfLines={1}>
+              {campus ? campus.name : 'Select Campus'}
             </Text>
           </View>
         </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.notifButton}
+          onPress={() => navigation.navigate('Notifications')}
+          activeOpacity={0.7}
+        >
+          <Ionicons name="notifications-outline" size={22} color="#1E293B" />
+          {unreadCount > 0 && (
+            <View style={styles.notifBadge}>
+              <Text style={styles.notifBadgeText}>{unreadCount > 9 ? '9+' : unreadCount}</Text>
+            </View>
+          )}
+        </TouchableOpacity>
       </View>
 
-      <ScrollView showsVerticalScrollIndicator={false} style={styles.content}>
-        {/* Search */}
-        <View style={styles.searchContainer}>
-          <Ionicons name="search" size={20} color="#757575" style={styles.searchIcon} />
-          <TextInput
-            style={styles.searchInput}
-            placeholder="Search canteens or meals..."
-            placeholderTextColor="#9e9e9e"
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-          />
-        </View>
+      {/* Student Greeting Banner */}
+      <View style={styles.greetingBar}>
+        <Text style={styles.greetingText}>
+          Hello, <Text style={styles.greetingName}>{user?.name?.split(' ')[0] || 'Student'}!</Text> 👋
+        </Text>
+        <Text style={styles.greetingSub}>Hungry? Discover college canteens ready to serve.</Text>
+      </View>
 
-        {/* Banner */}
-        <View style={styles.promoBanner}>
-          <View style={styles.promoTextContainer}>
-            <Text style={styles.promoTitle}>Hungry In Class?</Text>
-            <Text style={styles.promoSubtitle}>Hot meals delivered right to your classroom or hostel block.</Text>
-          </View>
-          <Ionicons name="fast-food" size={70} color="#ffe0b2" style={styles.promoIcon} />
-        </View>
+      {/* Search Bar */}
+      <View style={styles.searchBar}>
+        <Ionicons name="search-outline" size={20} color="#94A3B8" style={{ marginRight: 8 }} />
+        <TextInput
+          style={styles.searchInput}
+          placeholder="Search canteens, tea points, snacks..."
+          placeholderTextColor="#94A3B8"
+          value={searchQuery}
+          onChangeText={setSearchQuery}
+        />
+        {searchQuery.length > 0 && (
+          <TouchableOpacity onPress={() => setSearchQuery('')}>
+            <Ionicons name="close-circle" size={18} color="#94A3B8" />
+          </TouchableOpacity>
+        )}
+      </View>
 
-        {/* Categories */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Quick Categories</Text>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.categoriesScroll}>
-            {categories.map((cat, index) => (
+      {/* Categories Horizontal Slider */}
+      <View style={styles.categoriesSection}>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.categoriesList}>
+          {CATEGORIES.map((cat) => {
+            const isSelected = selectedCategory === cat.id;
+            return (
               <TouchableOpacity
-                key={index}
-                style={[
-                  styles.categoryChip,
-                  selectedCategory === cat && styles.categoryChipSelected
-                ]}
-                onPress={() => setSelectedCategory(cat === 'All' ? null : cat)}
+                key={cat.id}
+                style={[styles.categoryChip, isSelected && styles.categoryChipSelected]}
+                onPress={() => setSelectedCategory(cat.id)}
+                activeOpacity={0.7}
               >
-                <Text
-                  style={[
-                    styles.categoryText,
-                    selectedCategory === cat && styles.categoryTextSelected
-                  ]}
-                >
-                  {cat}
+                <Ionicons
+                  name={cat.icon as any}
+                  size={16}
+                  color={isSelected ? '#FFFFFF' : '#64748B'}
+                  style={{ marginRight: 6 }}
+                />
+                <Text style={[styles.categoryText, isSelected && styles.categoryTextSelected]}>
+                  {cat.name}
                 </Text>
               </TouchableOpacity>
-            ))}
-          </ScrollView>
-        </View>
+            );
+          })}
+        </ScrollView>
+      </View>
 
-        {/* Shops */}
-        <View style={[styles.section, { marginBottom: 30 }]}>
-          <Text style={styles.sectionTitle}>Available Canteens</Text>
-          {filteredShops.length === 0 ? (
-            <View style={styles.emptyContainer}>
-              <Ionicons name="alert-circle-outline" size={48} color="#bdbdbd" />
-              <Text style={styles.emptyText}>No active canteens found on this campus.</Text>
-            </View>
-          ) : (
-            <FlatList
-              data={filteredShops}
-              renderItem={renderShopItem}
-              keyExtractor={(item) => item.id}
-              scrollEnabled={false}
-            />
+      {/* Section Title */}
+      <View style={styles.sectionHeader}>
+        <Text style={styles.sectionTitle}>
+          {selectedCategory === 'all' ? 'Nearby Campus Canteens' : 'Filtered Canteens'}
+        </Text>
+        <Text style={styles.shopCount}>{filteredShops.length} available</Text>
+      </View>
+
+      {/* Main List */}
+      {loading ? (
+        <View style={styles.centered}>
+          <ActivityIndicator size="large" color="#FF5722" />
+          <Text style={styles.loadingText}>Fetching delicious canteens...</Text>
+        </View>
+      ) : errorMsg ? (
+        <View style={styles.centered}>
+          <Ionicons name="cloud-offline-outline" size={54} color="#EF4444" />
+          <Text style={styles.errorTitle}>Connection Error</Text>
+          <Text style={styles.errorSubtitle}>{errorMsg}</Text>
+          <TouchableOpacity style={styles.retryBtn} onPress={loadData}>
+            <Text style={styles.retryBtnText}>Retry</Text>
+          </TouchableOpacity>
+        </View>
+      ) : filteredShops.length === 0 ? (
+        <View style={styles.centered}>
+          <Ionicons name="restaurant-outline" size={54} color="#CBD5E1" />
+          <Text style={styles.emptyTitle}>No Canteens Found</Text>
+          <Text style={styles.emptySubtitle}>
+            {searchQuery
+              ? `No canteen matches "${searchQuery}". Try another search.`
+              : 'No food joints currently listed for this campus.'}
+          </Text>
+          {searchQuery.length > 0 && (
+            <TouchableOpacity style={styles.clearSearchBtn} onPress={() => setSearchQuery('')}>
+              <Text style={styles.clearSearchBtnText}>Clear Search</Text>
+            </TouchableOpacity>
           )}
         </View>
-      </ScrollView>
+      ) : (
+        <FlatList
+          data={filteredShops}
+          renderItem={renderShopCard}
+          keyExtractor={(item) => item.id}
+          contentContainerStyle={styles.listContent}
+          showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#FF5722']} />
+          }
+        />
+      )}
     </SafeAreaView>
   );
 }
@@ -188,215 +291,345 @@ export default function HomeScreen({ navigation }: any) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#ffffff',
-    paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0,
+    backgroundColor: '#F8FAFC',
   },
   topHeader: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
+    justifyContent: 'space-between',
     paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f5f5f5',
+    paddingTop: 12,
+    paddingBottom: 8,
+    backgroundColor: '#FFFFFF',
   },
-  locationContainer: {
+  locationSelector: {
     flexDirection: 'row',
     alignItems: 'center',
     flex: 1,
-    marginRight: 16,
+    marginRight: 12,
   },
-  locationTextContainer: {
-    marginLeft: 8,
+  locationIconCircle: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#FFF2EE',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 8,
+  },
+  locationTextCol: {
     flex: 1,
   },
-  locationLabel: {
-    fontSize: 10,
-    color: '#9e9e9e',
+  deliverToRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  deliverToLabel: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#FF5722',
     textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
-  campusName: {
+  campusNameText: {
     fontSize: 14,
-    fontWeight: 'bold',
-    color: '#212121',
+    fontWeight: '700',
+    color: '#1E293B',
+    marginTop: 1,
   },
-  avatarCircle: {
+  notifButton: {
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: '#FF5722',
+    backgroundColor: '#F1F5F9',
     justifyContent: 'center',
     alignItems: 'center',
   },
-  avatarText: {
-    color: '#ffffff',
-    fontWeight: 'bold',
-    fontSize: 18,
+  notifBadge: {
+    position: 'absolute',
+    top: 4,
+    right: 4,
+    backgroundColor: '#FF5722',
+    minWidth: 16,
+    height: 16,
+    borderRadius: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 3,
   },
-  content: {
-    flex: 1,
-    padding: 16,
+  notifBadgeText: {
+    color: '#FFFFFF',
+    fontSize: 9,
+    fontWeight: '800',
   },
-  searchContainer: {
+  greetingBar: {
+    paddingHorizontal: 16,
+    paddingTop: 10,
+    paddingBottom: 6,
+    backgroundColor: '#FFFFFF',
+  },
+  greetingText: {
+    fontSize: 17,
+    fontWeight: '600',
+    color: '#1E293B',
+  },
+  greetingName: {
+    color: '#FF5722',
+    fontWeight: '800',
+  },
+  greetingSub: {
+    fontSize: 12,
+    color: '#64748B',
+    marginTop: 2,
+  },
+  searchBar: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#f5f5f5',
-    borderRadius: 8,
+    backgroundColor: '#FFFFFF',
+    marginHorizontal: 16,
+    marginTop: 10,
     paddingHorizontal: 12,
-    marginBottom: 20,
-  },
-  searchIcon: {
-    marginRight: 8,
+    height: 46,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
   },
   searchInput: {
     flex: 1,
-    height: 45,
-    fontSize: 16,
-    color: '#212121',
+    fontSize: 14,
+    color: '#1E293B',
   },
-  promoBanner: {
-    backgroundColor: '#FF5722',
-    borderRadius: 16,
-    padding: 20,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 24,
+  categoriesSection: {
+    marginTop: 10,
+    marginBottom: 4,
   },
-  promoTextContainer: {
-    flex: 1,
-    marginRight: 10,
-  },
-  promoTitle: {
-    fontSize: 22,
-    fontWeight: 'bold',
-    color: '#ffffff',
-  },
-  promoSubtitle: {
-    fontSize: 13,
-    color: '#ffe0b2',
-    marginTop: 4,
-    lineHeight: 18,
-  },
-  promoIcon: {
-    opacity: 0.8,
-  },
-  section: {
-    marginBottom: 20,
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#37474f',
-    marginBottom: 12,
-  },
-  categoriesScroll: {
-    flexDirection: 'row',
+  categoriesList: {
+    paddingHorizontal: 16,
+    paddingVertical: 4,
   },
   categoryChip: {
-    backgroundColor: '#f5f5f5',
-    borderRadius: 20,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 14,
     paddingVertical: 8,
-    paddingHorizontal: 16,
+    borderRadius: 20,
     marginRight: 8,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
   },
   categoryChipSelected: {
     backgroundColor: '#FF5722',
+    borderColor: '#FF5722',
   },
   categoryText: {
-    color: '#757575',
-    fontSize: 14,
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#64748B',
   },
   categoryTextSelected: {
-    color: '#ffffff',
-    fontWeight: 'bold',
+    color: '#FFFFFF',
   },
-  shopCard: {
-    flexDirection: 'row',
-    backgroundColor: '#ffffff',
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#f0f0f0',
-    padding: 12,
-    marginBottom: 12,
-  },
-  shopImagePlaceholder: {
-    width: 80,
-    height: 80,
-    borderRadius: 8,
-    backgroundColor: '#fff3e0',
-    justifyContent: 'center',
-    alignItems: 'center',
-    position: 'relative',
-    overflow: 'hidden',
-  },
-  closedOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0,0,0,0.6)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  closedText: {
-    color: '#ffffff',
-    fontSize: 11,
-    fontWeight: 'bold',
-  },
-  shopDetails: {
-    flex: 1,
-    marginLeft: 12,
-    justifyContent: 'center',
-  },
-  shopHeaderRow: {
+  sectionHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    paddingBottom: 6,
+  },
+  sectionTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#1E293B',
+  },
+  shopCount: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#94A3B8',
+  },
+  listContent: {
+    paddingHorizontal: 16,
+    paddingTop: 6,
+    paddingBottom: 24,
+  },
+  shopCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    marginBottom: 14,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  shopImageArea: {
+    height: 110,
+    backgroundColor: '#FFF7ED',
+    justifyContent: 'center',
+    alignItems: 'center',
+    position: 'relative',
+  },
+  canteenIconCircle: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: '#FFFFFF',
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 6,
+    elevation: 2,
+  },
+  statusBadge: {
+    position: 'absolute',
+    top: 10,
+    right: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  openBadge: {
+    backgroundColor: '#D1FAE5',
+  },
+  closedBadge: {
+    backgroundColor: '#FEE2E2',
+  },
+  statusDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    marginRight: 5,
+  },
+  statusBadgeText: {
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 0.5,
+  },
+  shopInfo: {
+    padding: 14,
+  },
+  shopTitleRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 4,
   },
   shopName: {
     fontSize: 16,
-    fontWeight: 'bold',
-    color: '#212121',
+    fontWeight: '700',
+    color: '#1E293B',
     flex: 1,
     marginRight: 8,
   },
   ratingBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#fff8e1',
+    backgroundColor: '#10B981',
     paddingHorizontal: 6,
-    paddingVertical: 3,
-    borderRadius: 4,
+    paddingVertical: 2,
+    borderRadius: 6,
   },
   ratingText: {
     fontSize: 12,
-    fontWeight: 'bold',
-    color: '#ffa000',
-    marginLeft: 4,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    marginLeft: 3,
   },
   shopDescription: {
-    fontSize: 12,
-    color: '#757575',
-    marginTop: 4,
+    fontSize: 13,
+    color: '#64748B',
+    lineHeight: 18,
+    marginBottom: 10,
   },
-  shopFooterRow: {
+  shopMetaRow: {
     flexDirection: 'row',
-    marginTop: 8,
+    alignItems: 'center',
+    borderTopWidth: 1,
+    borderTopColor: '#F1F5F9',
+    paddingTop: 10,
   },
-  infoLabel: {
+  metaItem: {
     flexDirection: 'row',
     alignItems: 'center',
   },
-  infoValue: {
-    fontSize: 11,
-    color: '#757575',
+  metaText: {
+    fontSize: 12,
+    color: '#64748B',
     marginLeft: 4,
   },
-  emptyContainer: {
-    alignItems: 'center',
-    padding: 40,
+  metaDivider: {
+    width: 3,
+    height: 3,
+    borderRadius: 1.5,
+    backgroundColor: '#CBD5E1',
+    marginHorizontal: 10,
   },
-  emptyText: {
-    color: '#9e9e9e',
+  centered: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 24,
+  },
+  loadingText: {
+    marginTop: 12,
+    fontSize: 14,
+    color: '#64748B',
+  },
+  errorTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#1E293B',
+    marginTop: 12,
+  },
+  errorSubtitle: {
+    fontSize: 13,
+    color: '#64748B',
     textAlign: 'center',
-    marginTop: 8,
+    marginTop: 4,
+    marginBottom: 16,
+  },
+  retryBtn: {
+    backgroundColor: '#FF5722',
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 8,
+  },
+  retryBtnText: {
+    color: '#FFFFFF',
+    fontWeight: '700',
+    fontSize: 14,
+  },
+  emptyTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#1E293B',
+    marginTop: 12,
+  },
+  emptySubtitle: {
+    fontSize: 13,
+    color: '#64748B',
+    textAlign: 'center',
+    marginTop: 4,
+    lineHeight: 18,
+  },
+  clearSearchBtn: {
+    marginTop: 14,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    backgroundColor: '#F1F5F9',
+    borderRadius: 8,
+  },
+  clearSearchBtnText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#FF5722',
   },
 });

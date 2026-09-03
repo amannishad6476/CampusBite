@@ -1,0 +1,12 @@
+node_modules/
+.expo/
+dist/
+npm-debug.*
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+*.orig.*
+[._]*.s[a-w][a-z]
+*.env.local
