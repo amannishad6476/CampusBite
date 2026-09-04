@@ -165,6 +165,7 @@ def place_order(
     # Dispatch in-app order placed notification
     try:
         NotificationService.create_order_notification(db, db_order, "PLACED")
+        NotificationService.create_shopkeeper_order_notification(db, db_order, shop)
     except Exception as notif_err:
         logger.warning(f"Could not dispatch order placed notification: {notif_err}")
 

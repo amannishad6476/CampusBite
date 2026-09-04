@@ -25,7 +25,7 @@ class FoodItemCreate(BaseModel):
     image_url: Optional[str] = None
     is_veg: bool = True
     is_available: bool = True
-    category_id: int
+    category_id: Optional[int] = None
     preparation_time: int = Field(15, ge=1)
 
 class FoodItemUpdate(BaseModel):
@@ -38,6 +38,9 @@ class FoodItemUpdate(BaseModel):
     category_id: Optional[int] = None
     preparation_time: Optional[int] = None
 
+class FoodItemAvailabilityToggle(BaseModel):
+    is_available: bool
+
 class OrderPatchStatus(BaseModel):
     status: str = Field(..., description="Target status: ACCEPTED, PREPARING, READY_FOR_PICKUP, CANCELLED")
 
@@ -48,3 +51,18 @@ class EarningSummaryResponse(BaseModel):
     total_orders: int
     commission_deducted: Decimal
     net_earnings: Decimal
+
+class ShopkeeperProfileResponse(BaseModel):
+    id: str
+    name: str
+    email: str
+    phone: str
+    role: str
+    is_active: bool
+    shop_id: Optional[str] = None
+    shop_name: Optional[str] = None
+    campus_id: Optional[int] = None
+    campus_name: Optional[str] = None
+
+    class Config:
+        from_attributes = True

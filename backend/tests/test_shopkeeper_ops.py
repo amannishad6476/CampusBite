@@ -344,3 +344,123 @@ def test_shopkeeper_earnings_summary(client, db, shopkeeper_a):
     assert float(data["net_earnings"]) == 180.00
     assert data["total_orders"] == 1
     assert float(data["commission_deducted"]) == 20.00
+
+
+def test_shopkeeper_profile_and_assigned_canteen(client, shopkeeper_a):
+    """Test GET /api/v1/shopkeepers/me retrieves profile with assigned canteen info."""
+    res = client.get("/api/v1/shopkeepers/me", headers=shopkeeper_a["headers"])
+    assert res.status_code == 200
+    data = res.json()
+    assert data["email"] == "ska@bbd.ac.in"
+    assert data["role"] == "SHOPKEEPER"
+    assert data["shop_id"] == shopkeeper_a["shop_id"]
+    assert data["shop_name"] == "Shop A Canteen"
+    assert data["campus_name"] == "Test Campus"
+
+
+def test_create_menu_item_auto_general_category(client, shopkeeper_a):
+    """Test creating a food item without category_id automatically creates and assigns General category."""
+    item_payload = {
+        "name": "Auto Category Samosa",
+        "price": 25.00,
+        "description": "Crispy potato samosa",
+        "is_veg": True,
+        "is_available": True,
+        "preparation_time": 10
+    }
+    res = client.post("/api/v1/shopkeepers/me/menu", json=item_payload, headers=shopkeeper_a["headers"])
+    assert res.status_code == 201
+    data = res.json()
+    assert data["name"] == "Auto Category Samosa"
+    assert data["category_name"] == "General"
+    assert data["category_id"] is not None
+
+
+def test_toggle_item_availability(client, shopkeeper_a):
+    """Test 1-click PATCH /me/menu/{id}/availability."""
+    # Create item first
+    item_payload = {
+        "name": "Toggle Burger",
+        "price": 60.00,
+        "is_veg": True,
+        "is_available": True
+    }
+    create_res = client.post("/api/v1/shopkeepers/me/menu", json=item_payload, headers=shopkeeper_a["headers"])
+    item_id = create_res.json()["id"]
+
+    # Toggle to unavailable
+    toggle_res = client.patch(
+        f"/api/v1/shopkeepers/me/menu/{item_id}/availability",
+        json={"is_available": False},
+        headers=shopkeeper_a["headers"]
+    )
+    assert toggle_res.status_code == 200
+    assert toggle_res.json()["is_available"] is False
+
+    # Toggle back to available
+    toggle_res2 = client.patch(
+        f"/api/v1/shopkeepers/me/menu/{item_id}/availability",
+        json={"is_available": True},
+        headers=shopkeeper_a["headers"]
+    )
+    assert toggle_res2.status_code == 200
+    assert toggle_res2.json()["is_available"] is True
+
+
+def test_shopkeeper_notifications_flow(client, db, shopkeeper_a):
+    """Test shopkeeper notifications listing, unread count, read single, read all."""
+    from app.models.models import Notification
+
+    # Seed notifications for shopkeeper
+    n1 = Notification(
+        user_id=shopkeeper_a["user_id"],
+        title="Test Order 1",
+        message="New order #CB-001 placed",
+        type="ORDER_PLACED",
+        is_read=False
+    )
+    n2 = Notification(
+        user_id=shopkeeper_a["user_id"],
+        title="Test Order 2",
+        message="New order #CB-002 placed",
+        type="ORDER_PLACED",
+        is_read=False
+    )
+    db.add_all([n1, n2])
+    db.commit()
+
+    # Unread count
+    count_res = client.get("/api/v1/shopkeepers/me/notifications/unread-count", headers=shopkeeper_a["headers"])
+    assert count_res.status_code == 200
+    assert count_res.json()["unread_count"] >= 2
+
+    # List notifications
+    list_res = client.get("/api/v1/shopkeepers/me/notifications", headers=shopkeeper_a["headers"])
+    assert list_res.status_code == 200
+    notifs = list_res.json()
+    assert len(notifs) >= 2
+
+    # Mark single as read
+    read_res = client.patch(f"/api/v1/shopkeepers/me/notifications/{n1.id}/read", headers=shopkeeper_a["headers"])
+    assert read_res.status_code == 200
+    assert read_res.json()["is_read"] is True
+
+    # Mark all as read
+    read_all_res = client.post("/api/v1/shopkeepers/me/notifications/read-all", headers=shopkeeper_a["headers"])
+    assert read_all_res.status_code == 200
+
+    # Verify unread is now 0
+    count_res_after = client.get("/api/v1/shopkeepers/me/notifications/unread-count", headers=shopkeeper_a["headers"])
+    assert count_res_after.json()["unread_count"] == 0
+
+
+def test_shopkeeper_alias_routes(client, shopkeeper_a):
+    """Test /api/v1/shopkeeper alias router works identically to /api/v1/shopkeepers."""
+    res = client.get("/api/v1/shopkeeper/me", headers=shopkeeper_a["headers"])
+    assert res.status_code == 200
+    assert res.json()["email"] == "ska@bbd.ac.in"
+
+    shop_res = client.get("/api/v1/shopkeeper/shop", headers=shopkeeper_a["headers"])
+    assert shop_res.status_code == 200
+    assert shop_res.json()["name"] == "Shop A Canteen"
+

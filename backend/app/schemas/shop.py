@@ -16,6 +16,7 @@ class ShopResponse(BaseModel):
     closing_time: Optional[str] = None
     delivery_available: bool = True
     status: str = "APPROVED"
+    campus_name: Optional[str] = None
 
     class Config:
         from_attributes = True
@@ -36,6 +37,7 @@ class FoodItemResponse(BaseModel):
     is_veg: bool
     is_available: bool
     category_id: int
+    category_name: Optional[str] = None
     shop_id: str
     description: Optional[str] = None
     preparation_time: int = 15

@@ -106,6 +106,44 @@ class NotificationService:
         return notif
 
     @staticmethod
+    def create_shopkeeper_order_notification(
+        db: Session,
+        order: Order,
+        shop: Any
+    ) -> Optional[Notification]:
+        """
+        Creates a persistent in-app notification for the shopkeeper when a new order is placed.
+        """
+        if not getattr(shop, "shopkeeper_id", None):
+            return None
+
+        title = "New Order Received! 🔔"
+        message = f"New order #{order.order_number} has been placed for your canteen."
+
+        existing = db.query(Notification).filter(
+            Notification.user_id == shop.shopkeeper_id,
+            Notification.order_id == order.id,
+            Notification.type == "ORDER_PLACED"
+        ).first()
+
+        if existing:
+            return existing
+
+        notif = Notification(
+            user_id=shop.shopkeeper_id,
+            order_id=order.id,
+            title=title,
+            message=message,
+            type="ORDER_PLACED",
+            is_read=False
+        )
+        db.add(notif)
+        db.commit()
+        db.refresh(notif)
+        logger.info(f"Shopkeeper notification created for user {shop.shopkeeper_id} on order {order.order_number}")
+        return notif
+
+    @staticmethod
     def notify_student(user_id: str, order_number: str, event: Any) -> bool:
         """Mock helper for legacy tests / notification dispatch simulation."""
         logger.info(f"Notify student {user_id} for order {order_number} event {event}")

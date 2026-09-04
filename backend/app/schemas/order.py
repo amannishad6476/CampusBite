@@ -36,6 +36,7 @@ class OrderResponse(BaseModel):
     id: str
     order_number: str
     student_id: str
+    student_name: Optional[str] = None
     shop_id: str
     shop_name: Optional[str] = None
     status: str

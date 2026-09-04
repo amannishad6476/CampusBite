@@ -127,6 +127,12 @@ app.include_router(
 )
 
 app.include_router(
+    shopkeeper_ops.router,
+    prefix=f"{settings.API_V1_STR}/shopkeeper",
+    tags=["Shopkeeper Operations"]
+)
+
+app.include_router(
     delivery_ops.router,
     prefix=f"{settings.API_V1_STR}/delivery",
     tags=["Delivery Partner Operations"]
