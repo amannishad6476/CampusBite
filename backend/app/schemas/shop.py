@@ -11,6 +11,7 @@ class ShopResponse(BaseModel):
     is_open: bool
     campus_id: int
     phone_number: Optional[str] = None
+    shopkeeper_id: Optional[str] = None
     opening_time: Optional[str] = None
     closing_time: Optional[str] = None
     delivery_available: bool = True

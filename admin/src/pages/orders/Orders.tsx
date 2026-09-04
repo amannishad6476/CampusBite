@@ -1,32 +1,46 @@
-import { useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import adminService from '../../services/adminService';
-import { Order } from '../../types';
-import { Search, Eye, ShieldAlert, RefreshCw, X } from 'lucide-react';
+import { Order, DeliveryPartner } from '../../types';
+import { Search, Eye, ShieldAlert, RefreshCw, Bike, X, MapPin } from 'lucide-react';
 
 export default function Orders() {
   const [orders, setOrders] = useState<Order[]>([]);
+  const [riders, setRiders] = useState<DeliveryPartner[]>([]);
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
+  const [loading, setLoading] = useState(true);
 
   // Search/Filters
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('ALL');
-  
+
   // Override Form modal
   const [showOverrideModal, setShowOverrideModal] = useState(false);
   const [overrideStatus, setOverrideStatus] = useState('CANCELLED');
   const [overrideReason, setOverrideReason] = useState('');
 
-  const loadOrders = async () => {
+  // Assign Rider modal
+  const [showAssignModal, setShowAssignModal] = useState(false);
+  const [selectedRiderId, setSelectedRiderId] = useState('');
+  const [assignLoading, setAssignLoading] = useState(false);
+
+  const loadData = async () => {
+    setLoading(true);
     try {
-      const data = await adminService.getOrders();
-      setOrders(data);
+      const [ordersData, ridersData] = await Promise.all([
+        adminService.getOrders(),
+        adminService.getDeliveryPartners().catch(() => [])
+      ]);
+      setOrders(ordersData);
+      setRiders(ridersData);
     } catch (e) {
       console.error('Failed to load orders:', e);
+    } finally {
+      setLoading(false);
     }
   };
 
   useEffect(() => {
-    loadOrders();
+    loadData();
   }, []);
 
   const handleSelectOrder = async (order: Order) => {
@@ -57,207 +71,391 @@ export default function Orders() {
     }
   };
 
+  const handleAssignRider = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedOrder || !selectedRiderId) return;
+
+    setAssignLoading(true);
+    try {
+      const updated = await adminService.assignOrderRider(selectedOrder.id, selectedRiderId);
+      setSelectedOrder(updated);
+      setOrders(orders.map(o => o.id === updated.id ? updated : o));
+      setShowAssignModal(false);
+      setSelectedRiderId('');
+      alert(`Rider successfully assigned to order ${updated.order_number}.`);
+    } catch (err: any) {
+      alert(err.response?.data?.detail || 'Failed to assign rider to order.');
+    } finally {
+      setAssignLoading(false);
+    }
+  };
+
+  const getRiderName = (riderId?: string | null) => {
+    if (!riderId) return null;
+    const r = riders.find(rider => rider.id === riderId);
+    return r ? r.name : `Rider (${riderId.slice(0, 6)}...)`;
+  };
+
+  const getStatusBadge = (status: string) => {
+    switch (status) {
+      case 'DELIVERED': return { bg: '#def7ec', text: '#03543f' };
+      case 'CANCELLED': return { bg: '#fee2e2', text: '#991b1b' };
+      case 'ASSIGNED':
+      case 'PICKED_UP':
+      case 'OUT_FOR_DELIVERY': return { bg: '#e0e7ff', text: '#3730a3' };
+      case 'PREPARING':
+      case 'READY':
+      case 'READY_FOR_PICKUP': return { bg: '#fef08a', text: '#713f12' };
+      default: return { bg: '#e1effe', text: '#1e429f' };
+    }
+  };
+
   const filteredOrders = orders.filter(o => {
-    const matchesSearch = o.order_number.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                          o.shop_name.toLowerCase().includes(searchQuery.toLowerCase());
-    
+    const q = searchQuery.toLowerCase();
+    const matchesSearch = o.order_number.toLowerCase().includes(q) ||
+                          o.shop_name.toLowerCase().includes(q) ||
+                          (o.student_id && o.student_id.toLowerCase().includes(q));
     const matchesStatus = statusFilter === 'ALL' || o.status === statusFilter;
-    
     return matchesSearch && matchesStatus;
   });
 
   return (
     <div style={styles.container}>
+      {/* Header */}
       <div style={styles.titleRow}>
         <div>
-          <h2 style={styles.title}>System Orders Monitor</h2>
-          <p style={styles.subtitle}>Audit order books, delivery status checkpoints, and issue emergency overrides</p>
+          <h2 style={styles.title}>Order Management & Dispatch</h2>
+          <p style={styles.subtitle}>Audit active campus orders, assign delivery riders, and issue emergency overrides</p>
         </div>
-        <button onClick={loadOrders} style={styles.refreshBtn}>
+        <button onClick={loadData} style={styles.refreshBtn}>
           <RefreshCw size={16} style={{ marginRight: 8 }} />
           <span>Sync Orders</span>
         </button>
       </div>
 
-      <div style={styles.layout}>
-        {/* Left Side: Order List Feed */}
-        <div style={styles.leftCol}>
-          {/* Filters Area */}
-          <div style={styles.searchBar}>
-            <Search size={16} color="#6b7280" />
-            <input
-              type="text"
-              placeholder="Search order # or shop..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              style={styles.searchInput}
-            />
-          </div>
-
-          <div style={styles.filterGroup}>
-            <label style={styles.filterLabel}>Order Status</label>
-            <select
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-              style={styles.filterSelect}
-            >
-              <option value="ALL">All Statuses</option>
-              <option value="PENDING">PENDING</option>
-              <option value="ACCEPTED">ACCEPTED</option>
-              <option value="PREPARING">PREPARING</option>
-              <option value="READY_FOR_PICKUP">READY FOR PICKUP</option>
-              <option value="ASSIGNED">ASSIGNED</option>
-              <option value="PICKED_UP">PICKED UP</option>
-              <option value="OUT_FOR_DELIVERY">OUT FOR DELIVERY</option>
-              <option value="DELIVERED">DELIVERED</option>
-              <option value="CANCELLED">CANCELLED</option>
-            </select>
-          </div>
-
-          {/* List */}
-          <div style={styles.list}>
-            {filteredOrders.map((o) => (
-              <div
-                key={o.id}
-                onClick={() => handleSelectOrder(o)}
-                style={{
-                  ...styles.listItem,
-                  backgroundColor: selectedOrder?.id === o.id ? '#f3f4f6' : '#ffffff',
-                  borderColor: selectedOrder?.id === o.id ? '#10b981' : '#e5e7eb',
-                }}
-              >
-                <div style={styles.itemHeader}>
-                  <span style={styles.orderNo}>{o.order_number}</span>
-                  <span style={styles.statusBadge}>{o.status.replace(/_/g, ' ')}</span>
-                </div>
-                <div style={styles.itemBody}>
-                  <span style={styles.shopName}>{o.shop_name}</span>
-                  <span style={styles.price}>₹{Number(o.total_amount).toFixed(2)}</span>
-                </div>
-                <span style={styles.dateText}>{new Date(o.created_at).toLocaleString()}</span>
-              </div>
-            ))}
-            {filteredOrders.length === 0 && (
-              <div style={styles.emptyFeed}>No matching orders found.</div>
-            )}
-          </div>
+      {/* Filter bar */}
+      <div style={styles.filterCard}>
+        <div style={styles.searchBar}>
+          <Search size={18} color="#9ca3af" />
+          <input
+            type="text"
+            placeholder="Search by order #, canteen name, or student ID..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            style={styles.searchInput}
+          />
         </div>
 
-        {/* Right Side: Order details */}
-        <div style={styles.rightCol}>
-          {selectedOrder ? (
-            <div style={styles.detailsBox}>
-              <div style={styles.detailHeader}>
-                <div>
-                  <h3 style={styles.detailTitle}>Order {selectedOrder.order_number}</h3>
-                  <span style={styles.detailDate}>Placed: {new Date(selectedOrder.created_at).toLocaleString()}</span>
-                </div>
-                
-                {/* Emergency Override trigger */}
-                <button onClick={() => setShowOverrideModal(true)} style={styles.overrideBtn}>
-                  <ShieldAlert size={14} style={{ marginRight: 6 }} />
-                  <span>Admin Override</span>
-                </button>
-              </div>
-
-              {/* Status and payment summaries */}
-              <div style={styles.summaryGrid}>
-                <div style={styles.summaryCard}>
-                  <span style={styles.summaryLabel}>Workflow Status</span>
-                  <span style={styles.summaryVal}>{selectedOrder.status.replace(/_/g, ' ')}</span>
-                </div>
-                <div style={styles.summaryCard}>
-                  <span style={styles.summaryLabel}>Payment Status</span>
-                  <span style={styles.summaryVal}>{selectedOrder.payment_status} ({selectedOrder.payment_method})</span>
-                </div>
-              </div>
-
-              {/* Delivery destination target details */}
-              <div style={styles.section}>
-                <h4 style={styles.sectionTitle}>Delivery Destination</h4>
-                <div style={styles.destInfo}>
-                  <span style={styles.destText}><strong>Campus:</strong> {selectedOrder.delivery_address.campus_name}</span>
-                  <span style={styles.destText}><strong>Block/Hostel:</strong> {selectedOrder.delivery_address.block_name || selectedOrder.delivery_address.hostel_name || 'N/A'}</span>
-                  <span style={styles.destText}><strong>Room / Floor:</strong> Room {selectedOrder.delivery_address.room_number || 'N/A'}, Floor {selectedOrder.delivery_address.floor_level || 'N/A'}</span>
-                  <span style={styles.destText}><strong>Phone:</strong> {selectedOrder.delivery_address.phone}</span>
-                </div>
-              </div>
-
-              {/* Billing Breakdown */}
-              <div style={styles.section}>
-                <h4 style={styles.sectionTitle}>Receipt Breakdown</h4>
-                <div style={styles.pricingRow}>
-                  <span>Subtotal</span>
-                  <span>₹{Number(selectedOrder.subtotal).toFixed(2)}</span>
-                </div>
-                <div style={styles.pricingRow}>
-                  <span>Delivery Fee</span>
-                  <span>₹{Number(selectedOrder.delivery_fee).toFixed(2)}</span>
-                </div>
-                <div style={styles.pricingRow}>
-                  <span>Tax</span>
-                  <span>₹{Number(selectedOrder.tax).toFixed(2)}</span>
-                </div>
-                <div style={{ ...styles.pricingRow, ...styles.boldRow }}>
-                  <span>Total Bill Amount</span>
-                  <span>₹{Number(selectedOrder.total_amount).toFixed(2)}</span>
-                </div>
-              </div>
-            </div>
-          ) : (
-            <div style={styles.selectPrompt}>
-              <Eye size={48} color="#d1d5db" style={{ marginBottom: 12 }} />
-              <p>Select an order from the left pane to audit item lists, billing splits, drop destinations, or issue status overrides.</p>
-            </div>
-          )}
+        <div style={styles.filterGroup}>
+          <label style={styles.filterLabel}>Status:</label>
+          <select
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
+            style={styles.select}
+          >
+            <option value="ALL">All Order States</option>
+            <option value="PLACED">PLACED</option>
+            <option value="ACCEPTED">ACCEPTED</option>
+            <option value="PREPARING">PREPARING</option>
+            <option value="READY">READY FOR PICKUP</option>
+            <option value="ASSIGNED">ASSIGNED TO RIDER</option>
+            <option value="PICKED_UP">PICKED UP</option>
+            <option value="OUT_FOR_DELIVERY">OUT FOR DELIVERY</option>
+            <option value="DELIVERED">DELIVERED</option>
+            <option value="CANCELLED">CANCELLED</option>
+          </select>
         </div>
       </div>
 
-      {/* Emergency Override Modal */}
-      {showOverrideModal && (
-        <div style={styles.modalOverlay}>
-          <div style={styles.modal}>
+      {/* Orders Table */}
+      <div style={styles.tableCard}>
+        {loading ? (
+          <div style={styles.centerLoading}>Loading orders stream...</div>
+        ) : (
+          <div style={{ overflowX: 'auto' }}>
+            <table style={styles.table}>
+              <thead>
+                <tr>
+                  <th style={styles.th}>Order #</th>
+                  <th style={styles.th}>Canteen</th>
+                  <th style={styles.th}>Total Amount</th>
+                  <th style={styles.th}>Payment Method</th>
+                  <th style={styles.th}>Assigned Rider</th>
+                  <th style={styles.th}>Order Status</th>
+                  <th style={styles.th}>Created Time</th>
+                  <th style={styles.th}>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredOrders.map(order => {
+                  const badge = getStatusBadge(order.status);
+                  const riderName = getRiderName(order.delivery_partner_id);
+                  return (
+                    <tr key={order.id} style={styles.tr}>
+                      <td style={{ ...styles.td, fontWeight: 700, color: '#111827' }}>
+                        {order.order_number}
+                      </td>
+                      <td style={styles.td}>{order.shop_name}</td>
+                      <td style={{ ...styles.td, fontWeight: 700 }}>
+                        ₹{Number(order.total_amount).toFixed(2)}
+                      </td>
+                      <td style={styles.td}>
+                        <span style={styles.methodBadge}>{order.payment_method}</span>
+                        <span style={{ fontSize: '11px', color: '#6b7280', marginLeft: '6px' }}>({order.payment_status})</span>
+                      </td>
+                      <td style={styles.td}>
+                        {riderName ? (
+                          <div style={{ display: 'flex', alignItems: 'center' }}>
+                            <Bike size={14} color="#06b6d4" style={{ marginRight: 6 }} />
+                            <span style={{ fontWeight: 500, color: '#0e7490' }}>{riderName}</span>
+                          </div>
+                        ) : (
+                          <span style={{ color: '#9ca3af', fontStyle: 'italic' }}>Unassigned</span>
+                        )}
+                      </td>
+                      <td style={styles.td}>
+                        <span style={{
+                          ...styles.statusBadge,
+                          backgroundColor: badge.bg,
+                          color: badge.text
+                        }}>
+                          {order.status}
+                        </span>
+                      </td>
+                      <td style={{ ...styles.td, color: '#6b7280', fontSize: '13px' }}>
+                        {new Date(order.created_at).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })}
+                      </td>
+                      <td style={styles.td}>
+                        <div style={{ display: 'flex', gap: '6px' }}>
+                          <button
+                            onClick={() => handleSelectOrder(order)}
+                            style={styles.actionBtnPrimary}
+                            title="View Full Order Details"
+                          >
+                            <Eye size={13} style={{ marginRight: 4 }} />
+                            <span>View</span>
+                          </button>
+                          <button
+                            onClick={() => {
+                              setSelectedOrder(order);
+                              setSelectedRiderId(order.delivery_partner_id || '');
+                              setShowAssignModal(true);
+                            }}
+                            style={styles.actionBtnSecondary}
+                            title="Assign Delivery Rider"
+                          >
+                            <Bike size={13} style={{ marginRight: 4 }} />
+                            <span>Rider</span>
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+                {filteredOrders.length === 0 && (
+                  <tr>
+                    <td colSpan={8} style={{ ...styles.td, textAlign: 'center', padding: '36px', color: '#9ca3af' }}>
+                      No orders found matching the filter criteria.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      {/* Order Details Modal */}
+      {selectedOrder && !showAssignModal && !showOverrideModal && (
+        <div style={styles.modalBackdrop}>
+          <div style={{ ...styles.modalCard, maxWidth: '650px', width: '92%' }}>
             <div style={styles.modalHeader}>
-              <h3 style={styles.modalTitle}>Issue Administrative Override</h3>
-              <button onClick={() => setShowOverrideModal(false)} style={styles.closeBtn}>
-                <X size={16} />
+              <div>
+                <h3 style={styles.modalTitle}>Order {selectedOrder.order_number}</h3>
+                <span style={{ fontSize: '12px', color: '#6b7280' }}>
+                  Shop: {selectedOrder.shop_name} | OTP: <strong>{selectedOrder.otp}</strong>
+                </span>
+              </div>
+              <button onClick={() => setSelectedOrder(null)} style={styles.closeBtn}>
+                <X size={18} />
               </button>
             </div>
-            
-            <form onSubmit={handleOverrideSubmit} style={styles.modalForm}>
-              <div style={styles.formGroup}>
-                <label style={styles.formLabel}>Target Override Status</label>
-                <select
-                  value={overrideStatus}
-                  onChange={(e) => setOverrideStatus(e.target.value)}
-                  style={styles.formSelect}
+
+            <div style={styles.detailGrid}>
+              <div style={styles.detailBox}>
+                <span style={styles.detailBoxLabel}>Status</span>
+                <span style={{ fontWeight: 700, color: '#111827' }}>{selectedOrder.status}</span>
+              </div>
+              <div style={styles.detailBox}>
+                <span style={styles.detailBoxLabel}>Total Amount</span>
+                <span style={{ fontWeight: 700, color: '#111827' }}>₹{Number(selectedOrder.total_amount).toFixed(2)}</span>
+              </div>
+              <div style={styles.detailBox}>
+                <span style={styles.detailBoxLabel}>Payment</span>
+                <span style={{ fontWeight: 600 }}>{selectedOrder.payment_method} ({selectedOrder.payment_status})</span>
+              </div>
+              <div style={styles.detailBox}>
+                <span style={styles.detailBoxLabel}>Rider</span>
+                <span style={{ fontWeight: 600 }}>{getRiderName(selectedOrder.delivery_partner_id) || 'Unassigned'}</span>
+              </div>
+            </div>
+
+            {/* Delivery Address */}
+            <div style={{ margin: '16px 0', padding: '12px', backgroundColor: '#f9fafb', borderRadius: '8px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', marginBottom: '6px' }}>
+                <MapPin size={16} color="#ef4444" style={{ marginRight: 6 }} />
+                <strong style={{ fontSize: '13px' }}>Delivery Destination:</strong>
+              </div>
+              <div style={{ fontSize: '14px', color: '#374151' }}>
+                {selectedOrder.delivery_address?.campus_name}
+                {selectedOrder.delivery_address?.hostel_name && ` — Hostel: ${selectedOrder.delivery_address.hostel_name}`}
+                {selectedOrder.delivery_address?.room_number && `, Room: ${selectedOrder.delivery_address.room_number}`}
+                {selectedOrder.delivery_address?.phone && ` (Phone: ${selectedOrder.delivery_address.phone})`}
+              </div>
+            </div>
+
+            {/* Actions */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '20px' }}>
+              <button
+                onClick={() => setShowOverrideModal(true)}
+                style={styles.overrideBtn}
+              >
+                <ShieldAlert size={14} style={{ marginRight: 6 }} />
+                <span>Admin Status Override</span>
+              </button>
+
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <button
+                  onClick={() => setShowAssignModal(true)}
+                  style={styles.assignBtn}
                 >
-                  <option value="PENDING">PENDING</option>
-                  <option value="ACCEPTED">ACCEPTED</option>
-                  <option value="PREPARING">PREPARING</option>
-                  <option value="READY_FOR_PICKUP">READY FOR PICKUP</option>
-                  <option value="ASSIGNED">ASSIGNED</option>
-                  <option value="PICKED_UP">PICKED UP</option>
-                  <option value="OUT_FOR_DELIVERY">OUT FOR DELIVERY</option>
-                  <option value="DELIVERED">DELIVERED</option>
-                  <option value="CANCELLED">CANCELLED</option>
+                  <Bike size={14} style={{ marginRight: 6 }} />
+                  <span>Assign / Reassign Rider</span>
+                </button>
+                <button
+                  onClick={() => setSelectedOrder(null)}
+                  style={styles.closeModalBtn}
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Assign Rider Modal */}
+      {showAssignModal && selectedOrder && (
+        <div style={styles.modalBackdrop}>
+          <div style={styles.modalCard}>
+            <div style={styles.modalHeader}>
+              <div style={{ display: 'flex', alignItems: 'center' }}>
+                <Bike size={20} color="#06b6d4" style={{ marginRight: 8 }} />
+                <h3 style={styles.modalTitle}>Assign Rider to {selectedOrder.order_number}</h3>
+              </div>
+              <button onClick={() => setShowAssignModal(false)} style={styles.closeBtn}>
+                <X size={18} />
+              </button>
+            </div>
+
+            <form onSubmit={handleAssignRider}>
+              <div style={{ marginBottom: '16px' }}>
+                <label style={styles.modalLabel}>Select Available Delivery Rider:</label>
+                <select
+                  value={selectedRiderId}
+                  onChange={(e) => setSelectedRiderId(e.target.value)}
+                  required
+                  style={styles.modalSelect}
+                >
+                  <option value="">-- Choose Rider --</option>
+                  {riders.map(r => (
+                    <option key={r.id} value={r.id}>
+                      {r.name} ({r.vehicle_type}) — Status: {r.status}
+                    </option>
+                  ))}
                 </select>
               </div>
 
-              <div style={styles.formGroup}>
-                <label style={styles.formLabel}>Justification Reason (Mandatory - Audited)</label>
+              <div style={styles.modalActions}>
+                <button
+                  type="button"
+                  onClick={() => setShowAssignModal(false)}
+                  style={styles.cancelBtn}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={assignLoading || !selectedRiderId}
+                  style={{ ...styles.confirmBtn, backgroundColor: '#06b6d4' }}
+                >
+                  {assignLoading ? 'Assigning...' : 'Confirm Assignment'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Emergency Status Override Modal */}
+      {showOverrideModal && selectedOrder && (
+        <div style={styles.modalBackdrop}>
+          <div style={styles.modalCard}>
+            <div style={styles.modalHeader}>
+              <div style={{ display: 'flex', alignItems: 'center' }}>
+                <ShieldAlert size={20} color="#dc2626" style={{ marginRight: 8 }} />
+                <h3 style={styles.modalTitle}>Emergency Status Override</h3>
+              </div>
+              <button onClick={() => setShowOverrideModal(false)} style={styles.closeBtn}>
+                <X size={18} />
+              </button>
+            </div>
+
+            <p style={{ fontSize: '13px', color: '#6b7280', margin: '0 0 16px 0' }}>
+              Override current status (<strong>{selectedOrder.status}</strong>) for order {selectedOrder.order_number}. This will be permanently recorded in the system audit logs.
+            </p>
+
+            <form onSubmit={handleOverrideSubmit}>
+              <div style={{ marginBottom: '14px' }}>
+                <label style={styles.modalLabel}>Target Status</label>
+                <select
+                  value={overrideStatus}
+                  onChange={(e) => setOverrideStatus(e.target.value)}
+                  style={styles.modalSelect}
+                >
+                  <option value="CANCELLED">CANCELLED (Refund/Abort)</option>
+                  <option value="DELIVERED">DELIVERED (Force Complete)</option>
+                  <option value="READY">READY (Ready for Pickup)</option>
+                  <option value="PREPARING">PREPARING (In Kitchen)</option>
+                </select>
+              </div>
+
+              <div style={{ marginBottom: '16px' }}>
+                <label style={styles.modalLabel}>Mandatory Reason / Justification</label>
                 <textarea
                   value={overrideReason}
                   onChange={(e) => setOverrideReason(e.target.value)}
-                  placeholder="e.g. Canteen electricity failure - refunding customer / Support override requested"
-                  style={styles.formTextarea}
+                  placeholder="Provide complete explanation for this manual intervention (min 5 chars)..."
                   required
+                  rows={3}
+                  style={styles.modalTextarea}
                 />
               </div>
 
               <div style={styles.modalActions}>
-                <button type="button" onClick={() => setShowOverrideModal(false)} style={styles.cancelBtn}>Cancel</button>
-                <button type="submit" style={styles.saveBtn}>Force Override</button>
+                <button
+                  type="button"
+                  onClick={() => setShowOverrideModal(false)}
+                  style={styles.cancelBtn}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  style={{ ...styles.confirmBtn, backgroundColor: '#dc2626' }}
+                >
+                  Force Status Override
+                </button>
               </div>
             </form>
           </div>
@@ -271,345 +469,296 @@ const styles = {
   container: {
     display: 'flex',
     flexDirection: 'column' as const,
-    gap: '24px',
+    gap: '20px',
   },
   titleRow: {
     display: 'flex',
     justifyContent: 'space-between',
     alignItems: 'center',
+    flexWrap: 'wrap' as const,
+    gap: '16px',
   },
   title: {
-    fontSize: '22px',
-    fontWeight: 'bold',
-    color: '#111827',
     margin: 0,
+    fontSize: '24px',
+    fontWeight: '700',
+    color: '#111827',
   },
   subtitle: {
+    margin: '4px 0 0 0',
     fontSize: '14px',
-    color: '#4b5563',
-    marginTop: '4px',
+    color: '#6b7280',
   },
   refreshBtn: {
     display: 'flex',
     alignItems: 'center',
-    padding: '10px 16px',
+    padding: '9px 16px',
     backgroundColor: '#ffffff',
     border: '1px solid #d1d5db',
     borderRadius: '8px',
     fontSize: '14px',
+    fontWeight: '500',
     color: '#374151',
     cursor: 'pointer',
-    fontWeight: 500,
   },
-  layout: {
+  filterCard: {
+    backgroundColor: '#ffffff',
+    padding: '16px',
+    borderRadius: '12px',
+    border: '1px solid #e5e7eb',
     display: 'flex',
-    gap: '24px',
-    alignItems: 'flex-start',
-  },
-  leftCol: {
-    flex: '0 0 350px',
-    backgroundColor: '#ffffff',
-    border: '1px solid #e5e7eb',
-    borderRadius: '12px',
-    padding: '20px',
-    boxShadow: '0 1px 3px 0 rgba(0,0,0,0.05)',
-  },
-  rightCol: {
-    flex: 1,
-    backgroundColor: '#ffffff',
-    border: '1px solid #e5e7eb',
-    borderRadius: '12px',
-    padding: '24px',
-    boxShadow: '0 1px 3px 0 rgba(0,0,0,0.05)',
-    minHeight: '500px',
+    gap: '16px',
+    alignItems: 'center',
+    flexWrap: 'wrap' as const,
   },
   searchBar: {
+    flex: 1,
+    minWidth: '260px',
     display: 'flex',
     alignItems: 'center',
+    backgroundColor: '#f9fafb',
     border: '1px solid #d1d5db',
-    borderRadius: '6px',
-    padding: '8px 12px',
-    gap: '8px',
-    marginBottom: '16px',
+    borderRadius: '8px',
+    padding: '0 12px',
   },
   searchInput: {
+    width: '100%',
     border: 'none',
+    backgroundColor: 'transparent',
+    padding: '10px 8px',
+    fontSize: '14px',
     outline: 'none',
-    fontSize: '13px',
-    flex: 1,
   },
   filterGroup: {
     display: 'flex',
-    flexDirection: 'column' as const,
-    gap: '4px',
-    marginBottom: '20px',
-  },
-  filterLabel: {
-    fontSize: '11px',
-    fontWeight: 'bold',
-    color: '#4b5563',
-    textTransform: 'uppercase' as const,
-  },
-  filterSelect: {
-    padding: '8px',
-    borderRadius: '6px',
-    borderColor: '#d1d5db',
-    fontSize: '13px',
-    outline: 'none',
-  },
-  list: {
-    display: 'flex',
-    flexDirection: 'column' as const,
-    gap: '12px',
-  },
-  listItem: {
-    border: '1px solid #e5e7eb',
-    borderRadius: '8px',
-    padding: '16px',
-    cursor: 'pointer',
-    transition: 'background-color 0.2s',
-  },
-  itemHeader: {
-    display: 'flex',
-    justifyContent: 'space-between',
     alignItems: 'center',
-  },
-  orderNo: {
-    fontSize: '14px',
-    fontWeight: 'bold',
-    color: '#111827',
-  },
-  statusBadge: {
-    fontSize: '10px',
-    fontWeight: 'bold',
-    backgroundColor: '#f3f4f6',
-    color: '#4b5563',
-    padding: '2px 8px',
-    borderRadius: '12px',
-  },
-  itemBody: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    margin: '8px 0 4px 0',
-  },
-  shopName: {
-    fontSize: '13px',
-    fontWeight: 500,
-    color: '#374151',
-  },
-  price: {
-    fontSize: '14px',
-    fontWeight: 'bold',
-    color: '#10b981',
-  },
-  dateText: {
-    fontSize: '10px',
-    color: '#9ca3af',
-  },
-  emptyFeed: {
-    padding: '20px',
-    textAlign: 'center' as const,
-    color: '#9ca3af',
-    fontSize: '13px',
-  },
-  detailsBox: {},
-  detailHeader: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    borderBottom: '1px solid #e5e7eb',
-    paddingBottom: '20px',
-    marginBottom: '20px',
-  },
-  detailTitle: {
-    fontSize: '20px',
-    fontWeight: 'bold',
-    color: '#111827',
-    margin: 0,
-  },
-  detailDate: {
-    fontSize: '12px',
-    color: '#6b7280',
-    marginTop: '4px',
-    display: 'block',
-  },
-  overrideBtn: {
-    display: 'flex',
-    alignItems: 'center',
-    backgroundColor: '#dc2626',
-    color: '#ffffff',
-    border: 'none',
-    borderRadius: '6px',
-    padding: '8px 14px',
-    fontSize: '13px',
-    fontWeight: 'bold',
-    cursor: 'pointer',
-  },
-  summaryGrid: {
-    display: 'grid',
-    gridTemplateColumns: '1fr 1fr',
-    gap: '16px',
-    marginBottom: '24px',
-  },
-  summaryCard: {
-    backgroundColor: '#f9fafb',
-    border: '1px solid #e5e7eb',
-    borderRadius: '8px',
-    padding: '16px',
-  },
-  summaryLabel: {
-    fontSize: '11px',
-    color: '#6b7280',
-    textTransform: 'uppercase' as const,
-    fontWeight: 'bold',
-  },
-  summaryVal: {
-    fontSize: '15px',
-    fontWeight: 'bold',
-    color: '#111827',
-    marginTop: '6px',
-    display: 'block',
-  },
-  section: {
-    marginBottom: '24px',
-    borderBottom: '1px solid #f3f4f6',
-    paddingBottom: '16px',
-  },
-  sectionTitle: {
-    fontSize: '13px',
-    fontWeight: 'bold',
-    color: '#374151',
-    textTransform: 'uppercase' as const,
-    marginBottom: '12px',
-  },
-  destInfo: {
-    display: 'flex',
-    flexDirection: 'column' as const,
     gap: '8px',
   },
-  destText: {
+  filterLabel: {
     fontSize: '13px',
+    fontWeight: '600',
     color: '#4b5563',
   },
-  pricingRow: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    fontSize: '13px',
+  select: {
+    padding: '9px 12px',
+    borderRadius: '8px',
+    border: '1px solid #d1d5db',
+    backgroundColor: '#ffffff',
+    fontSize: '14px',
+    color: '#374151',
+  },
+  tableCard: {
+    backgroundColor: '#ffffff',
+    borderRadius: '12px',
+    border: '1px solid #e5e7eb',
+    overflow: 'hidden',
+    boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
+  },
+  table: {
+    width: '100%',
+    borderCollapse: 'collapse' as const,
+    textAlign: 'left' as const,
+  },
+  th: {
+    padding: '12px 16px',
+    backgroundColor: '#f9fafb',
+    borderBottom: '1px solid #e5e7eb',
+    fontSize: '12px',
+    fontWeight: '600',
     color: '#4b5563',
-    marginVertical: '6px',
+    textTransform: 'uppercase' as const,
+    letterSpacing: '0.5px',
   },
-  boldRow: {
-    fontSize: '15px',
-    fontWeight: 'bold',
-    color: '#111827',
-    borderTop: '1px solid #e5e7eb',
-    paddingTop: '10px',
-    marginTop: '10px',
+  tr: {
+    borderBottom: '1px solid #f3f4f6',
   },
-  selectPrompt: {
+  td: {
+    padding: '14px 16px',
+    fontSize: '14px',
+    color: '#374151',
+  },
+  statusBadge: {
+    display: 'inline-block',
+    padding: '3px 10px',
+    borderRadius: '12px',
+    fontSize: '12px',
+    fontWeight: '600',
+  },
+  methodBadge: {
+    display: 'inline-block',
+    padding: '2px 8px',
+    backgroundColor: '#f3f4f6',
+    borderRadius: '4px',
+    fontSize: '12px',
+    fontWeight: '600',
+    color: '#4b5563',
+  },
+  actionBtnPrimary: {
     display: 'flex',
-    flexDirection: 'column' as const,
-    justifyContent: 'center',
     alignItems: 'center',
-    height: '400px',
-    color: '#9ca3af',
-    textAlign: 'center' as const,
+    backgroundColor: '#eff6ff',
+    color: '#1d4ed8',
+    border: '1px solid #bfdbfe',
+    borderRadius: '6px',
+    padding: '6px 10px',
+    fontSize: '12px',
+    fontWeight: '600',
+    cursor: 'pointer',
   },
-  modalOverlay: {
+  actionBtnSecondary: {
+    display: 'flex',
+    alignItems: 'center',
+    backgroundColor: '#ecfeff',
+    color: '#0891b2',
+    border: '1px solid #a5f3fc',
+    borderRadius: '6px',
+    padding: '6px 10px',
+    fontSize: '12px',
+    fontWeight: '600',
+    cursor: 'pointer',
+  },
+  centerLoading: {
+    padding: '48px',
+    textAlign: 'center' as const,
+    color: '#6b7280',
+    fontSize: '15px',
+  },
+  modalBackdrop: {
     position: 'fixed' as const,
     top: 0,
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: 'rgba(0,0,0,0.4)',
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
     display: 'flex',
-    justifyContent: 'center',
     alignItems: 'center',
-    zIndex: 100,
+    justifyContent: 'center',
+    zIndex: 1000,
   },
-  modal: {
+  modalCard: {
     backgroundColor: '#ffffff',
     borderRadius: '12px',
     padding: '24px',
-    width: '100%',
-    maxWidth: '450px',
-    boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1)',
+    maxWidth: '500px',
+    width: '95%',
+    boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1)',
   },
   modalHeader: {
     display: 'flex',
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: '16px',
-    borderBottom: '1px solid #f3f4f6',
-    paddingBottom: '12px',
   },
   modalTitle: {
-    fontSize: '16px',
-    fontWeight: 'bold',
-    color: '#111827',
     margin: 0,
+    fontSize: '18px',
+    fontWeight: '700',
+    color: '#111827',
   },
   closeBtn: {
-    backgroundColor: 'transparent',
+    background: 'transparent',
     border: 'none',
     cursor: 'pointer',
     color: '#9ca3af',
   },
-  modalForm: {
+  detailGrid: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(2, 1fr)',
+    gap: '12px',
+    marginBottom: '16px',
+  },
+  detailBox: {
+    padding: '12px',
+    backgroundColor: '#f9fafb',
+    borderRadius: '8px',
     display: 'flex',
     flexDirection: 'column' as const,
-    gap: '16px',
+    gap: '4px',
   },
-  formGroup: {
+  detailBoxLabel: {
+    fontSize: '11px',
+    color: '#6b7280',
+    textTransform: 'uppercase' as const,
+    fontWeight: '600',
+  },
+  overrideBtn: {
     display: 'flex',
-    flexDirection: 'column' as const,
-    gap: '6px',
-  },
-  formLabel: {
-    fontSize: '12px',
-    fontWeight: 'bold',
-    color: '#374151',
-  },
-  formSelect: {
-    padding: '10px',
+    alignItems: 'center',
+    backgroundColor: '#fee2e2',
+    color: '#b91c1c',
+    border: '1px solid #fecaca',
     borderRadius: '6px',
-    borderColor: '#d1d5db',
+    padding: '8px 12px',
     fontSize: '13px',
-    outline: 'none',
+    fontWeight: '600',
+    cursor: 'pointer',
   },
-  formTextarea: {
-    padding: '10px 14px',
-    fontSize: '13px',
+  assignBtn: {
+    display: 'flex',
+    alignItems: 'center',
+    backgroundColor: '#06b6d4',
+    color: '#ffffff',
+    border: 'none',
     borderRadius: '6px',
+    padding: '8px 14px',
+    fontSize: '13px',
+    fontWeight: '600',
+    cursor: 'pointer',
+  },
+  closeModalBtn: {
+    padding: '8px 14px',
+    backgroundColor: '#f3f4f6',
     border: '1px solid #d1d5db',
-    outline: 'none',
-    height: '80px',
-    resize: 'none' as const,
-    fontFamily: 'inherit',
+    borderRadius: '6px',
+    fontSize: '13px',
+    fontWeight: '500',
+    cursor: 'pointer',
+  },
+  modalLabel: {
+    display: 'block',
+    fontSize: '13px',
+    fontWeight: '600',
+    color: '#374151',
+    marginBottom: '6px',
+  },
+  modalSelect: {
+    width: '100%',
+    padding: '10px',
+    borderRadius: '8px',
+    border: '1px solid #d1d5db',
+    fontSize: '14px',
+    backgroundColor: '#ffffff',
+  },
+  modalTextarea: {
+    width: '100%',
+    padding: '10px',
+    borderRadius: '8px',
+    border: '1px solid #d1d5db',
+    fontSize: '14px',
+    boxSizing: 'border-box' as const,
   },
   modalActions: {
     display: 'flex',
     justifyContent: 'flex-end',
-    gap: '10px',
+    gap: '12px',
+    marginTop: '20px',
   },
   cancelBtn: {
-    padding: '8px 16px',
+    padding: '9px 16px',
     backgroundColor: '#f3f4f6',
     border: '1px solid #d1d5db',
     borderRadius: '6px',
+    fontSize: '14px',
+    fontWeight: '500',
     cursor: 'pointer',
-    fontSize: '13px',
-    color: '#4b5563',
   },
-  saveBtn: {
-    padding: '8px 16px',
-    backgroundColor: '#dc2626',
+  confirmBtn: {
+    padding: '9px 18px',
     color: '#ffffff',
     border: 'none',
     borderRadius: '6px',
+    fontSize: '14px',
+    fontWeight: '600',
     cursor: 'pointer',
-    fontSize: '13px',
-    fontWeight: 'bold',
   },
 };

@@ -51,6 +51,9 @@ export interface Shop {
   campus_id: number;
   phone_number?: string | null;
   status: 'PENDING' | 'APPROVED' | 'ACTIVE' | 'SUSPENDED' | 'INACTIVE';
+  opening_time?: string | null;
+  closing_time?: string | null;
+  delivery_available?: boolean;
 }
 
 export interface FoodItem {
@@ -60,8 +63,10 @@ export interface FoodItem {
   price: number;
   is_veg: boolean;
   is_available: boolean;
-  category_id: number;
+  category_id?: number | null;
   shop_id: string;
+  preparation_time?: number | null;
+  image_url?: string | null;
 }
 
 export interface OrderItem {
@@ -95,6 +100,7 @@ export interface Order {
     room_number?: string | null;
     phone: string;
   };
+  delivery_partner_id?: string | null;
   otp: string;
   created_at: string;
 }
@@ -169,3 +175,52 @@ export interface FinanceSummary {
     net_earnings: number;
   };
 }
+
+export interface PaymentRecord {
+  id: string;
+  order_id: string;
+  order_number?: string | null;
+  amount: number;
+  status: string;
+  gateway: string;
+  transaction_ref?: string | null;
+  created_at: string;
+  student_name?: string | null;
+  shop_name?: string | null;
+}
+
+export interface ReportMetrics {
+  total_orders: number;
+  delivered_orders: number;
+  cancelled_orders: number;
+  gmv: number;
+  delivery_fees: number;
+}
+
+export interface CanteenReport {
+  shop_id: string;
+  shop_name: string;
+  campus_id: number;
+  total_orders: number;
+  delivered_orders: number;
+  revenue: number;
+}
+
+export interface RiderReport {
+  rider_id: string;
+  rider_name: string;
+  vehicle_type: string;
+  rating: number;
+  completed_deliveries: number;
+  is_active: boolean;
+}
+
+export interface ReportSummary {
+  today: ReportMetrics;
+  this_week: ReportMetrics;
+  this_month: ReportMetrics;
+  all_time: ReportMetrics;
+  canteens: CanteenReport[];
+  riders: RiderReport[];
+}
+

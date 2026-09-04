@@ -60,3 +60,75 @@ class BlockCreate(BaseModel):
 class HostelCreate(BaseModel):
     name: str
     campus_id: int
+
+class ShopkeeperCreate(BaseModel):
+    name: str
+    email: str
+    phone: str
+    password: str = Field(..., min_length=6)
+
+class DeliveryPartnerCreate(BaseModel):
+    name: str
+    email: str
+    phone: str
+    password: str = Field(..., min_length=6)
+    vehicle_type: str = "BIKE"
+    vehicle_number: Optional[str] = None
+
+class ShopCreate(BaseModel):
+    name: str
+    description: Optional[str] = None
+    shopkeeper_id: str
+    campus_id: int
+    phone_number: Optional[str] = None
+    opening_time: Optional[str] = "08:00 AM"
+    closing_time: Optional[str] = "10:00 PM"
+    delivery_available: bool = True
+
+class ShopUpdateAdmin(BaseModel):
+    name: Optional[str] = None
+    description: Optional[str] = None
+    shopkeeper_id: Optional[str] = None
+    campus_id: Optional[int] = None
+    phone_number: Optional[str] = None
+    opening_time: Optional[str] = None
+    closing_time: Optional[str] = None
+    delivery_available: Optional[bool] = None
+    is_open: Optional[bool] = None
+    status: Optional[str] = None
+
+class FoodItemCreateAdmin(BaseModel):
+    name: str
+    description: Optional[str] = None
+    price: Decimal
+    category_id: Optional[int] = None
+    is_veg: bool = True
+    preparation_time: int = 15
+    is_available: bool = True
+    image_url: Optional[str] = None
+
+class FoodItemUpdateAdmin(BaseModel):
+    name: Optional[str] = None
+    description: Optional[str] = None
+    price: Optional[Decimal] = None
+    category_id: Optional[int] = None
+    is_veg: Optional[bool] = None
+    preparation_time: Optional[int] = None
+    is_available: Optional[bool] = None
+    image_url: Optional[str] = None
+
+class OrderAssignRiderPayload(BaseModel):
+    delivery_partner_id: str
+
+class PaymentResponse(BaseModel):
+    id: str
+    order_id: str
+    order_number: Optional[str] = None
+    amount: Decimal
+    status: str
+    gateway: str
+    transaction_ref: Optional[str] = None
+    created_at: datetime
+    student_name: Optional[str] = None
+    shop_name: Optional[str] = None
+

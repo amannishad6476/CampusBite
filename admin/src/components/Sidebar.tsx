@@ -1,11 +1,17 @@
 import { NavLink } from 'react-router-dom';
 import {
   LayoutDashboard,
-  MapPin,
+  GraduationCap,
+  UserCheck,
+  Bike,
   Store,
-  Users,
+  UtensilsCrossed,
   ShoppingBag,
-  DollarSign,
+  CreditCard,
+  MapPin,
+  BarChart3,
+  Bell,
+  Settings,
   ClipboardList,
   LogOut
 } from 'lucide-react';
@@ -16,12 +22,18 @@ export default function Sidebar() {
 
   const menuItems = [
     { name: 'Dashboard', path: '/', icon: LayoutDashboard },
+    { name: 'Students', path: '/students', icon: GraduationCap },
+    { name: 'Shopkeepers', path: '/shopkeepers', icon: UserCheck },
+    { name: 'Delivery Riders', path: '/riders', icon: Bike },
+    { name: 'Canteens', path: '/canteens', icon: Store },
+    { name: 'Menu / Food', path: '/menu', icon: UtensilsCrossed },
+    { name: 'Orders', path: '/orders', icon: ShoppingBag },
+    { name: 'Payments', path: '/payments', icon: CreditCard },
     { name: 'Campuses', path: '/campuses', icon: MapPin },
-    { name: 'Shops & Canteens', path: '/shops', icon: Store },
-    { name: 'Users Management', path: '/users', icon: Users },
-    { name: 'Orders Log', path: '/orders', icon: ShoppingBag },
-    { name: 'Finance Splits', path: '/finance', icon: DollarSign },
-    { name: 'System Audit Logs', path: '/audit-logs', icon: ClipboardList },
+    { name: 'Reports', path: '/reports', icon: BarChart3 },
+    { name: 'Notifications', path: '/notifications', icon: Bell },
+    { name: 'Settings', path: '/settings', icon: Settings },
+    { name: 'Audit Logs', path: '/audit-logs', icon: ClipboardList },
   ];
 
   const activeStyle = {
@@ -59,7 +71,7 @@ export default function Sidebar() {
       <div style={styles.footer}>
         <button onClick={logout} style={styles.logoutBtn}>
           <LogOut size={16} style={{ marginRight: 8 }} />
-          <span>Rider Log Out</span>
+          <span>Admin Log Out</span>
         </button>
       </div>
     </aside>
@@ -77,9 +89,10 @@ const styles = {
     height: '100vh',
     position: 'sticky' as const,
     top: 0,
+    overflow: 'hidden' as const,
   },
   brand: {
-    padding: '24px 24px 4px 24px',
+    padding: '20px 20px 4px 20px',
     display: 'flex',
     alignItems: 'center',
   },
@@ -98,25 +111,25 @@ const styles = {
     letterSpacing: '1.5px',
     color: '#10b981',
     fontWeight: 'bold',
-    paddingHorizontal: '24px',
-    paddingLeft: '24px',
-    marginBottom: '28px',
+    paddingLeft: '20px',
+    marginBottom: '16px',
   },
   nav: {
     flex: 1,
-    padding: '0 16px',
+    padding: '0 12px',
     display: 'flex',
     flexDirection: 'column' as const,
-    gap: '4px',
+    gap: '3px',
+    overflowY: 'auto' as const,
   },
   navLink: {
     display: 'flex',
     alignItems: 'center',
-    padding: '12px 16px',
+    padding: '10px 14px',
     borderRadius: '8px',
     textDecoration: 'none',
     color: '#9ca3af',
-    fontSize: '14px',
+    fontSize: '13px',
     fontWeight: '500',
     transition: 'background-color 0.2s, color 0.2s',
   },

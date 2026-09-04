@@ -7,14 +7,18 @@ from decimal import Decimal
 
 from app.core.database import get_db
 from app.api.deps import RoleChecker
+from app.core.security import get_password_hash
 from app.models.models import (
     User, Student, Shopkeeper, DeliveryPartner, Shop, Order,
-    Commission, Earning, Campus, College, Block, Hostel, AuditLog, FoodItem
+    Commission, Earning, Campus, College, Block, Hostel, AuditLog, FoodItem,
+    Payment, Delivery, FoodCategory
 )
 from app.schemas.admin import (
     DashboardSummary, StatusUpdatePayload, UserStatusUpdatePayload,
     OrderOverridePayload, AuditLogResponse, CampusCreate, CollegeCreate,
-    BlockCreate, HostelCreate
+    BlockCreate, HostelCreate, ShopkeeperCreate, DeliveryPartnerCreate,
+    ShopCreate, ShopUpdateAdmin, FoodItemCreateAdmin, FoodItemUpdateAdmin,
+    OrderAssignRiderPayload, PaymentResponse
 )
 from app.schemas.location import CampusResponse, CollegeResponse, BlockResponse, HostelResponse
 from app.schemas.shop import ShopResponse, FoodItemResponse
@@ -564,3 +568,420 @@ def get_finance_overview(
             "net_earnings": commission_earned
         }
     }
+
+
+# 11. Shopkeeper Registration
+@router.post("/shopkeepers", status_code=status.HTTP_201_CREATED)
+def create_shopkeeper(
+    payload: ShopkeeperCreate,
+    current_user: User = Depends(require_admin),
+    db: Session = Depends(get_db)
+):
+    """Admin registers a new shopkeeper account."""
+    email_clean = payload.email.strip().lower()
+    phone_clean = payload.phone.strip()
+    if db.query(User).filter(func.lower(User.email) == email_clean).first():
+        raise HTTPException(status_code=400, detail="A user with this email address already exists.")
+    if db.query(User).filter(User.phone == phone_clean).first():
+        raise HTTPException(status_code=400, detail="A user with this phone number already exists.")
+    
+    new_user = User(
+        name=payload.name.strip(),
+        email=email_clean,
+        phone=phone_clean,
+        password_hash=get_password_hash(payload.password),
+        role="SHOPKEEPER"
+    )
+    db.add(new_user)
+    db.flush()
+    shopkeeper = Shopkeeper(user_id=new_user.id, is_verified=True)
+    db.add(shopkeeper)
+    db.commit()
+    db.refresh(new_user)
+    
+    log_admin_action(db, current_user.id, "CREATE_SHOPKEEPER", "SHOPKEEPER", new_user.id, f"Created shopkeeper '{new_user.name}' ({new_user.email})")
+    return {
+        "id": new_user.id,
+        "name": new_user.name,
+        "email": new_user.email,
+        "phone": new_user.phone,
+        "is_active": new_user.is_active,
+        "created_at": new_user.created_at
+    }
+
+
+# 12. Delivery Partner Registration
+@router.post("/delivery-partners", status_code=status.HTTP_201_CREATED)
+def create_delivery_partner(
+    payload: DeliveryPartnerCreate,
+    current_user: User = Depends(require_admin),
+    db: Session = Depends(get_db)
+):
+    """Admin registers a new delivery partner."""
+    email_clean = payload.email.strip().lower()
+    phone_clean = payload.phone.strip()
+    if db.query(User).filter(func.lower(User.email) == email_clean).first():
+        raise HTTPException(status_code=400, detail="A user with this email address already exists.")
+    if db.query(User).filter(User.phone == phone_clean).first():
+        raise HTTPException(status_code=400, detail="A user with this phone number already exists.")
+    
+    new_user = User(
+        name=payload.name.strip(),
+        email=email_clean,
+        phone=phone_clean,
+        password_hash=get_password_hash(payload.password),
+        role="DELIVERY_PARTNER"
+    )
+    db.add(new_user)
+    db.flush()
+    rider = DeliveryPartner(
+        user_id=new_user.id,
+        vehicle_type=payload.vehicle_type,
+        vehicle_number=payload.vehicle_number,
+        is_active=True,
+        is_verified=True
+    )
+    db.add(rider)
+    db.commit()
+    db.refresh(new_user)
+    
+    log_admin_action(db, current_user.id, "CREATE_RIDER", "DELIVERY_PARTNER", new_user.id, f"Created delivery rider '{new_user.name}' ({new_user.email})")
+    return {
+        "id": new_user.id,
+        "name": new_user.name,
+        "email": new_user.email,
+        "phone": new_user.phone,
+        "is_active": new_user.is_active,
+        "vehicle_type": rider.vehicle_type,
+        "vehicle_number": rider.vehicle_number,
+        "rating": rider.rating,
+        "status": "ONLINE",
+        "created_at": new_user.created_at
+    }
+
+
+# 13. Canteen Creation & Modification
+@router.post("/shops", response_model=ShopResponse, status_code=status.HTTP_201_CREATED)
+def create_shop(
+    payload: ShopCreate,
+    current_user: User = Depends(require_admin),
+    db: Session = Depends(get_db)
+):
+    """Admin adds a new canteen to a campus."""
+    shopkeeper = db.query(Shopkeeper).filter(Shopkeeper.user_id == payload.shopkeeper_id).first()
+    if not shopkeeper:
+        raise HTTPException(status_code=404, detail="Selected shopkeeper not found.")
+    campus = db.query(Campus).filter(Campus.id == payload.campus_id).first()
+    if not campus:
+        raise HTTPException(status_code=404, detail="Selected campus not found.")
+    
+    shop = Shop(
+        name=payload.name.strip(),
+        description=payload.description,
+        shopkeeper_id=payload.shopkeeper_id,
+        campus_id=payload.campus_id,
+        phone_number=payload.phone_number,
+        opening_time=payload.opening_time,
+        closing_time=payload.closing_time,
+        delivery_available=payload.delivery_available,
+        status="APPROVED",
+        is_open=True
+    )
+    db.add(shop)
+    db.commit()
+    db.refresh(shop)
+    
+    log_admin_action(db, current_user.id, "CREATE_SHOP", "SHOP", shop.id, f"Created canteen '{shop.name}' for campus ID {shop.campus_id}")
+    return shop
+
+@router.put("/shops/{shop_id}", response_model=ShopResponse)
+def update_shop(
+    shop_id: str,
+    payload: ShopUpdateAdmin,
+    current_user: User = Depends(require_admin),
+    db: Session = Depends(get_db)
+):
+    """Admin updates canteen metadata or reassigns shopkeeper."""
+    shop = db.query(Shop).filter(Shop.id == shop_id).first()
+    if not shop:
+        raise HTTPException(status_code=404, detail="Shop not found.")
+    
+    if payload.shopkeeper_id is not None:
+        sk = db.query(Shopkeeper).filter(Shopkeeper.user_id == payload.shopkeeper_id).first()
+        if not sk:
+            raise HTTPException(status_code=404, detail="Shopkeeper not found.")
+        shop.shopkeeper_id = payload.shopkeeper_id
+    if payload.campus_id is not None:
+        camp = db.query(Campus).filter(Campus.id == payload.campus_id).first()
+        if not camp:
+            raise HTTPException(status_code=404, detail="Campus not found.")
+        shop.campus_id = payload.campus_id
+    if payload.name is not None:
+        shop.name = payload.name.strip()
+    if payload.description is not None:
+        shop.description = payload.description
+    if payload.phone_number is not None:
+        shop.phone_number = payload.phone_number
+    if payload.opening_time is not None:
+        shop.opening_time = payload.opening_time
+    if payload.closing_time is not None:
+        shop.closing_time = payload.closing_time
+    if payload.delivery_available is not None:
+        shop.delivery_available = payload.delivery_available
+    if payload.is_open is not None:
+        shop.is_open = payload.is_open
+    if payload.status is not None:
+        shop.status = payload.status
+        
+    db.commit()
+    db.refresh(shop)
+    log_admin_action(db, current_user.id, "UPDATE_SHOP", "SHOP", shop.id, f"Updated canteen '{shop.name}' configuration")
+    return shop
+
+
+# 14. Menu Items CRUD
+@router.post("/shops/{shop_id}/items", response_model=FoodItemResponse, status_code=status.HTTP_201_CREATED)
+def create_food_item(
+    shop_id: str,
+    payload: FoodItemCreateAdmin,
+    current_user: User = Depends(require_admin),
+    db: Session = Depends(get_db)
+):
+    """Admin creates a food item for a canteen."""
+    shop = db.query(Shop).filter(Shop.id == shop_id).first()
+    if not shop:
+        raise HTTPException(status_code=404, detail="Canteen not found.")
+    
+    category_id = payload.category_id
+    if not category_id:
+        cat = db.query(FoodCategory).filter(FoodCategory.shop_id == shop_id).first()
+        if not cat:
+            cat = FoodCategory(name="General", shop_id=shop_id)
+            db.add(cat)
+            db.flush()
+        category_id = cat.id
+
+    item = FoodItem(
+        shop_id=shop_id,
+        category_id=category_id,
+        name=payload.name.strip(),
+        description=payload.description,
+        price=payload.price,
+        is_veg=payload.is_veg,
+        preparation_time=payload.preparation_time,
+        is_available=payload.is_available,
+        image_url=payload.image_url
+    )
+    db.add(item)
+    db.commit()
+    db.refresh(item)
+    log_admin_action(db, current_user.id, "CREATE_FOOD_ITEM", "FOOD_ITEM", item.id, f"Added item '{item.name}' to shop '{shop.name}'")
+    return item
+
+@router.put("/items/{item_id}", response_model=FoodItemResponse)
+def update_food_item(
+    item_id: str,
+    payload: FoodItemUpdateAdmin,
+    current_user: User = Depends(require_admin),
+    db: Session = Depends(get_db)
+):
+    """Admin updates an existing food item."""
+    item = db.query(FoodItem).filter(FoodItem.id == item_id).first()
+    if not item:
+        raise HTTPException(status_code=404, detail="Food item not found.")
+    
+    if payload.name is not None:
+        item.name = payload.name.strip()
+    if payload.description is not None:
+        item.description = payload.description
+    if payload.price is not None:
+        item.price = payload.price
+    if payload.category_id is not None:
+        item.category_id = payload.category_id
+    if payload.is_veg is not None:
+        item.is_veg = payload.is_veg
+    if payload.preparation_time is not None:
+        item.preparation_time = payload.preparation_time
+    if payload.is_available is not None:
+        item.is_available = payload.is_available
+    if payload.image_url is not None:
+        item.image_url = payload.image_url
+        
+    db.commit()
+    db.refresh(item)
+    log_admin_action(db, current_user.id, "UPDATE_FOOD_ITEM", "FOOD_ITEM", item.id, f"Updated item '{item.name}'")
+    return item
+
+@router.delete("/items/{item_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_food_item(
+    item_id: str,
+    current_user: User = Depends(require_admin),
+    db: Session = Depends(get_db)
+):
+    """Admin removes a food item from catalog."""
+    item = db.query(FoodItem).filter(FoodItem.id == item_id).first()
+    if not item:
+        raise HTTPException(status_code=404, detail="Food item not found.")
+    item_name = item.name
+    db.delete(item)
+    db.commit()
+    log_admin_action(db, current_user.id, "DELETE_FOOD_ITEM", "FOOD_ITEM", item_id, f"Deleted item '{item_name}'")
+
+
+# 15. Order Rider Assignment
+@router.post("/orders/{order_id}/assign-rider", response_model=OrderResponse)
+def assign_order_rider(
+    order_id: str,
+    payload: OrderAssignRiderPayload,
+    current_user: User = Depends(require_admin),
+    db: Session = Depends(get_db)
+):
+    """Admin assigns or reassigns a delivery rider to an order."""
+    order = db.query(Order).filter(Order.id == order_id).first()
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found.")
+    
+    rider = db.query(DeliveryPartner).filter(DeliveryPartner.user_id == payload.delivery_partner_id).first()
+    if not rider:
+        raise HTTPException(status_code=404, detail="Delivery rider not found.")
+        
+    order.delivery_partner_id = payload.delivery_partner_id
+    if order.status in ["PLACED", "ACCEPTED", "PREPARING", "READY_FOR_PICKUP", "READY"]:
+        order.status = "ASSIGNED"
+        
+    delivery = db.query(Delivery).filter(Delivery.order_id == order.id).first()
+    if delivery:
+        delivery.delivery_partner_id = payload.delivery_partner_id
+        delivery.status = "ASSIGNED"
+    else:
+        delivery = Delivery(
+            order_id=order.id,
+            delivery_partner_id=payload.delivery_partner_id,
+            status="ASSIGNED"
+        )
+        db.add(delivery)
+        
+    db.commit()
+    db.refresh(order)
+    
+    try:
+        NotificationService.create_order_notification(db, order, "ASSIGNED")
+    except Exception:
+        pass
+        
+    log_admin_action(db, current_user.id, "ASSIGN_RIDER", "ORDER", order.id, f"Assigned rider {payload.delivery_partner_id} to order {order.order_number}")
+    return order
+
+
+# 16. Payments Ledger
+@router.get("/payments", response_model=List[PaymentResponse])
+def get_payments(
+    current_user: User = Depends(require_admin),
+    db: Session = Depends(get_db)
+):
+    """List payments across orders with order details (zero secrets exposed)."""
+    payments = db.query(Payment).order_by(Payment.created_at.desc()).all()
+    out = []
+    for p in payments:
+        order = db.query(Order).filter(Order.id == p.order_id).first()
+        order_number = order.order_number if order else None
+        student_name = None
+        shop_name = None
+        if order:
+            student_user = db.query(User).filter(User.id == order.student_id).first()
+            if student_user:
+                student_name = student_user.name
+            shop = db.query(Shop).filter(Shop.id == order.shop_id).first()
+            if shop:
+                shop_name = shop.name
+        out.append(PaymentResponse(
+            id=p.id,
+            order_id=p.order_id,
+            order_number=order_number,
+            amount=p.amount,
+            status=p.status,
+            gateway=p.gateway,
+            transaction_ref=p.transaction_ref,
+            created_at=p.created_at,
+            student_name=student_name,
+            shop_name=shop_name
+        ))
+    return out
+
+
+# 17. Reports Analytics
+@router.get("/reports")
+def get_admin_reports(
+    current_user: User = Depends(require_admin),
+    db: Session = Depends(get_db)
+):
+    """Aggregated financial and operational performance metrics."""
+    now = datetime.now(timezone.utc)
+    start_of_today = datetime(now.year, now.month, now.day)
+    start_of_week = start_of_today - timedelta(days=7)
+    start_of_month = start_of_today - timedelta(days=30)
+    
+    def calc_period_metrics(start_time):
+        orders_q = db.query(Order).filter(Order.created_at >= start_time) if start_time else db.query(Order)
+        total_orders = orders_q.count()
+        delivered_orders = orders_q.filter(Order.status == "DELIVERED").count()
+        cancelled_orders = orders_q.filter(Order.status == "CANCELLED").count()
+        gmv = orders_q.filter(Order.status != "CANCELLED").with_entities(func.sum(Order.total_amount)).scalar() or Decimal("0.00")
+        delivery_fees = orders_q.filter(Order.status == "DELIVERED").with_entities(func.sum(Order.delivery_fee)).scalar() or Decimal("0.00")
+        return {
+            "total_orders": total_orders,
+            "delivered_orders": delivered_orders,
+            "cancelled_orders": cancelled_orders,
+            "gmv": float(gmv),
+            "delivery_fees": float(delivery_fees)
+        }
+    
+    canteen_stats = []
+    shops = db.query(Shop).all()
+    for s in shops:
+        s_orders = db.query(Order).filter(Order.shop_id == s.id)
+        count = s_orders.count()
+        delivered = s_orders.filter(Order.status == "DELIVERED").count()
+        revenue = s_orders.filter(Order.status != "CANCELLED").with_entities(func.sum(Order.total_amount)).scalar() or Decimal("0.00")
+        canteen_stats.append({
+            "shop_id": s.id,
+            "shop_name": s.name,
+            "campus_id": s.campus_id,
+            "total_orders": count,
+            "delivered_orders": delivered,
+            "revenue": float(revenue)
+        })
+        
+    rider_stats = []
+    riders = db.query(User, DeliveryPartner).join(DeliveryPartner, User.id == DeliveryPartner.user_id).all()
+    for u, d in riders:
+        del_count = db.query(Delivery).filter(Delivery.delivery_partner_id == u.id, Delivery.status == "DELIVERED").count()
+        rider_stats.append({
+            "rider_id": u.id,
+            "rider_name": u.name,
+            "vehicle_type": d.vehicle_type,
+            "rating": float(d.rating) if d.rating else 5.0,
+            "completed_deliveries": del_count,
+            "is_active": u.is_active
+        })
+        
+    return {
+        "today": calc_period_metrics(start_of_today),
+        "this_week": calc_period_metrics(start_of_week),
+        "this_month": calc_period_metrics(start_of_month),
+        "all_time": calc_period_metrics(None),
+        "canteens": canteen_stats,
+        "riders": rider_stats
+    }
+
+
+# 18. Student Order History
+@router.get("/students/{student_id}/orders", response_model=List[OrderResponse])
+def get_student_orders(
+    student_id: str,
+    current_user: User = Depends(require_admin),
+    db: Session = Depends(get_db)
+):
+    """Retrieve order history for a specific student."""
+    return db.query(Order).filter(Order.student_id == student_id).order_by(Order.created_at.desc()).all()
+

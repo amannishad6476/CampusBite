@@ -47,6 +47,7 @@ class OrderResponse(BaseModel):
     payment_status: str
     payment_method: str
     delivery_address: Dict[str, Any]
+    delivery_partner_id: Optional[str] = None
     created_at: datetime
     updated_at: datetime
     items: List[OrderItemResponse] = []

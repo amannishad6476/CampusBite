@@ -2,7 +2,7 @@ import apiClient from '../api/client';
 import {
   DashboardSummary, Campus, College, Block, Hostel,
   Shop, FoodItem, Order, Student, Shopkeeper, DeliveryPartner,
-  AuditLog, FinanceSummary
+  AuditLog, FinanceSummary, PaymentRecord, ReportSummary
 } from '../types';
 
 export const adminService = {
@@ -142,6 +142,65 @@ export const adminService = {
   // 10. Audit log history feed
   async getAuditLogs(): Promise<AuditLog[]> {
     const response = await apiClient.get<AuditLog[]>('/admin/audit-logs');
+    return response.data;
+  },
+
+  // 11. Shopkeeper creation
+  async createShopkeeper(data: { name: string; email: string; phone: string; password: string }): Promise<Shopkeeper> {
+    const response = await apiClient.post<Shopkeeper>('/admin/shopkeepers', data);
+    return response.data;
+  },
+
+  // 12. Delivery Partner creation
+  async createDeliveryPartner(data: { name: string; email: string; phone: string; password: string; vehicle_type: string; vehicle_number?: string }): Promise<DeliveryPartner> {
+    const response = await apiClient.post<DeliveryPartner>('/admin/delivery-partners', data);
+    return response.data;
+  },
+
+  // 13. Canteen creation & update
+  async createShop(data: { name: string; description?: string; shopkeeper_id: string; campus_id: number; phone_number?: string; opening_time?: string; closing_time?: string; delivery_available?: boolean }): Promise<Shop> {
+    const response = await apiClient.post<Shop>('/admin/shops', data);
+    return response.data;
+  },
+  async updateShop(id: string, data: Partial<Shop>): Promise<Shop> {
+    const response = await apiClient.put<Shop>(`/admin/shops/${id}`, data);
+    return response.data;
+  },
+
+  // 14. Menu food items management
+  async createFoodItem(shopId: string, data: { name: string; price: number; description?: string; category_id?: number; is_veg?: boolean; preparation_time?: number; is_available?: boolean; image_url?: string }): Promise<FoodItem> {
+    const response = await apiClient.post<FoodItem>(`/admin/shops/${shopId}/items`, data);
+    return response.data;
+  },
+  async updateFoodItem(itemId: string, data: Partial<FoodItem>): Promise<FoodItem> {
+    const response = await apiClient.put<FoodItem>(`/admin/items/${itemId}`, data);
+    return response.data;
+  },
+  async deleteFoodItem(itemId: string): Promise<void> {
+    await apiClient.delete(`/admin/items/${itemId}`);
+  },
+
+  // 15. Assign order rider
+  async assignOrderRider(orderId: string, deliveryPartnerId: string): Promise<Order> {
+    const response = await apiClient.post<Order>(`/admin/orders/${orderId}/assign-rider`, { delivery_partner_id: deliveryPartnerId });
+    return response.data;
+  },
+
+  // 16. Payments ledger
+  async getPayments(): Promise<PaymentRecord[]> {
+    const response = await apiClient.get<PaymentRecord[]>('/admin/payments');
+    return response.data;
+  },
+
+  // 17. Reports summary
+  async getReports(): Promise<ReportSummary> {
+    const response = await apiClient.get<ReportSummary>('/admin/reports');
+    return response.data;
+  },
+
+  // 18. Student order history
+  async getStudentOrders(studentId: string): Promise<Order[]> {
+    const response = await apiClient.get<Order[]>(`/admin/students/${studentId}/orders`);
     return response.data;
   }
 };
