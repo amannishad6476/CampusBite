@@ -10,7 +10,7 @@ import {
   ActivityIndicator,
   StatusBar,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import apiService from '../../services/apiService';
 import { useAuth } from '../../context/AuthContext';
 import { Campus } from '../../types';

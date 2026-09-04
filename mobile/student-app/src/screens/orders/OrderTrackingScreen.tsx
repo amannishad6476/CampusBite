@@ -10,9 +10,10 @@ import {
   StatusBar,
   RefreshControl,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import apiService from '../../services/apiService';
 import { Order, OrderStatus } from '../../types';
+import OrderReviewModal from './OrderReviewModal';
 
 interface OrderTrackingScreenProps {
   route: any;
@@ -64,6 +65,7 @@ export default function OrderTrackingScreen({ route, navigation }: OrderTracking
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [reviewModalVisible, setReviewModalVisible] = useState(false);
 
   const pollIntervalRef = useRef<any>(null);
 
@@ -319,7 +321,34 @@ export default function OrderTrackingScreen({ route, navigation }: OrderTracking
             <Text style={styles.totalVal}>₹{Number(order.total_amount).toFixed(2)}</Text>
           </View>
         </View>
+
+        {/* Delivered Order Review Card */}
+        {order.status === 'DELIVERED' && (
+          <View style={styles.reviewPromptCard}>
+            <View style={styles.reviewPromptLeft}>
+              <Ionicons name="star" size={24} color="#FF5722" />
+              <View style={{ marginLeft: 12, flex: 1 }}>
+                <Text style={styles.reviewPromptTitle}>Rate Your Experience</Text>
+                <Text style={styles.reviewPromptSub}>Help us improve canteen food and delivery</Text>
+              </View>
+            </View>
+            <TouchableOpacity
+              style={styles.reviewPromptBtn}
+              onPress={() => setReviewModalVisible(true)}
+            >
+              <Text style={styles.reviewPromptBtnText}>Rate Order</Text>
+            </TouchableOpacity>
+          </View>
+        )}
       </ScrollView>
+
+      {/* Review Modal */}
+      <OrderReviewModal
+        visible={reviewModalVisible}
+        order={order}
+        onClose={() => setReviewModalVisible(false)}
+        onSubmitted={() => fetchOrder(false)}
+      />
     </SafeAreaView>
   );
 }
@@ -633,5 +662,49 @@ const styles = StyleSheet.create({
   retryBtnText: {
     color: '#FFFFFF',
     fontWeight: '700',
+  },
+  reviewPromptCard: {
+    backgroundColor: '#FFFFFF',
+    marginHorizontal: 16,
+    marginBottom: 24,
+    borderRadius: 16,
+    padding: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    borderWidth: 1,
+    borderColor: '#FED7AA',
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 6,
+  },
+  reviewPromptLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+    marginRight: 8,
+  },
+  reviewPromptTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#1E293B',
+  },
+  reviewPromptSub: {
+    fontSize: 11,
+    color: '#64748B',
+    marginTop: 2,
+  },
+  reviewPromptBtn: {
+    backgroundColor: '#FF5722',
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 10,
+  },
+  reviewPromptBtnText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#FFFFFF',
   },
 });

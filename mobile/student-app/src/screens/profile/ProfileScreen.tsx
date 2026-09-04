@@ -11,7 +11,7 @@ import {
   Modal,
 } from 'react-native';
 import { useAuth } from '../../context/AuthContext';
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import apiService from '../../services/apiService';
 import { Campus } from '../../types';
 import { APP_CONFIG } from '../../utils/config';

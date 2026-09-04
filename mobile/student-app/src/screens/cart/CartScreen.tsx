@@ -10,7 +10,7 @@ import {
   Alert,
 } from 'react-native';
 import { useCart } from '../../context/CartContext';
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { CartItem } from '../../types';
 
 export default function CartScreen({ navigation }: any) {

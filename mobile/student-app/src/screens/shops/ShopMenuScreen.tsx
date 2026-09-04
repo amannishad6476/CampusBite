@@ -15,7 +15,7 @@ import {
 import { useCart } from '../../context/CartContext';
 import apiService from '../../services/apiService';
 import { FoodItem } from '../../types';
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import FoodDetailModal from './FoodDetailModal';
 
 export default function ShopMenuScreen({ route, navigation }: any) {

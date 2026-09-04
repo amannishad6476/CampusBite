@@ -7,8 +7,20 @@
 # For more details, see
 #   http://developer.android.com/guide/developing/tools/proguard.html
 
-# react-native-reanimated
+# react-native-reanimated & turbo modules
 -keep class com.swmansion.reanimated.** { *; }
 -keep class com.facebook.react.turbomodule.** { *; }
 
-# Add any project specific keep options here:
+# Cashfree Payment Gateway SDK (Drop Checkout, UPI Intent, Dynamic QR)
+-keep class com.cashfree.** { *; }
+-keep interface com.cashfree.** { *; }
+-keep class com.reactnativecashfreepgsdk.** { *; }
+-dontwarn com.cashfree.**
+
+# React Native Screens, Gesture Handler, Safe Area Context
+-keep class com.swmansion.rnscreens.** { *; }
+-keep class com.swmansion.gesturehandler.** { *; }
+-keep class com.th3rdwave.safeareacontext.** { *; }
+
+# Expo modules & SecureStore
+-keep class expo.modules.** { *; }

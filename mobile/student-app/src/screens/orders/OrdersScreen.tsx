@@ -13,8 +13,8 @@ import {
 } from 'react-native';
 import apiService from '../../services/apiService';
 import { useCart } from '../../context/CartContext';
-import { Order, OrderStatus } from '../../types';
-import { Ionicons } from '@expo/vector-icons';
+import { Order, OrderStatus, OrderReview } from '../../types';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import OrderReviewModal from './OrderReviewModal';
 
 const ACTIVE_STATUSES: OrderStatus[] = [
@@ -30,6 +30,7 @@ const ACTIVE_STATUSES: OrderStatus[] = [
 export default function OrdersScreen({ navigation }: any) {
   const { reorderItems } = useCart();
   const [orders, setOrders] = useState<Order[]>([]);
+  const [reviewsMap, setReviewsMap] = useState<Record<string, OrderReview>>({});
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [selectedTab, setSelectedTab] = useState<'active' | 'past'>('active');
@@ -40,8 +41,18 @@ export default function OrdersScreen({ navigation }: any) {
 
   const loadOrders = useCallback(async () => {
     try {
-      const data = await apiService.getOrders();
+      const [data, reviews] = await Promise.all([
+        apiService.getOrders(),
+        apiService.getStudentReviews().catch(() => []),
+      ]);
       setOrders(data);
+      const revMap: Record<string, OrderReview> = {};
+      if (Array.isArray(reviews)) {
+        reviews.forEach((r) => {
+          if (r.order_id) revMap[r.order_id] = r;
+        });
+      }
+      setReviewsMap(revMap);
     } catch (e) {
       console.warn('Failed to load orders:', e);
     } finally {
@@ -191,16 +202,31 @@ export default function OrdersScreen({ navigation }: any) {
             ) : (
               <>
                 {isDelivered && (
-                  <TouchableOpacity
-                    style={styles.reviewBtn}
-                    onPress={() => {
-                      setReviewOrder(item);
-                      setReviewModalVisible(true);
-                    }}
-                  >
-                    <Ionicons name="star-outline" size={13} color="#FF5722" style={{ marginRight: 3 }} />
-                    <Text style={styles.reviewBtnText}>Rate</Text>
-                  </TouchableOpacity>
+                  reviewsMap[item.id] ? (
+                    <TouchableOpacity
+                      style={styles.reviewedBtn}
+                      onPress={() => {
+                        setReviewOrder(item);
+                        setReviewModalVisible(true);
+                      }}
+                    >
+                      <Ionicons name="star" size={13} color="#059669" style={{ marginRight: 3 }} />
+                      <Text style={styles.reviewedBtnText}>
+                        ★ {reviewsMap[item.id].rating ?? reviewsMap[item.id].rating_shop}
+                      </Text>
+                    </TouchableOpacity>
+                  ) : (
+                    <TouchableOpacity
+                      style={styles.reviewBtn}
+                      onPress={() => {
+                        setReviewOrder(item);
+                        setReviewModalVisible(true);
+                      }}
+                    >
+                      <Ionicons name="star-outline" size={13} color="#FF5722" style={{ marginRight: 3 }} />
+                      <Text style={styles.reviewBtnText}>Rate</Text>
+                    </TouchableOpacity>
+                  )
                 )}
 
                 <TouchableOpacity
@@ -490,6 +516,22 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '700',
     color: '#FF5722',
+  },
+  reviewedBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#ECFDF5',
+    borderWidth: 1,
+    borderColor: '#A7F3D0',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+    marginRight: 6,
+  },
+  reviewedBtnText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#059669',
   },
   reorderBtn: {
     flexDirection: 'row',

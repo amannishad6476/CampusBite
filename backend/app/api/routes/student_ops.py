@@ -7,10 +7,17 @@ from sqlalchemy.orm import Session
 from typing import List, Optional
 from app.core.database import get_db
 from app.api.deps import get_current_user
-from app.models.models import User, Shop, FoodItem, Order, OrderItem
+import logging
+from sqlalchemy import func
+from app.models.models import User, Shop, FoodItem, Order, OrderItem, Review, Notification
 from app.schemas.shop import ShopResponse, FoodItemResponse
 from app.schemas.order import OrderCreate, StudentOrderResponse, PaymentSessionResponse, PaymentVerificationResponse
+from app.schemas.review import ReviewCreate, ReviewResponse
+from app.schemas.notification import NotificationResponse, UnreadCountResponse
 from app.services.payment_service import CashfreeService
+from app.services.notification_service import NotificationService
+
+logger = logging.getLogger("campusbite.student_ops")
 
 
 router = APIRouter()
@@ -155,6 +162,12 @@ def place_order(
     db.commit()
     db.refresh(db_order)
 
+    # Dispatch in-app order placed notification
+    try:
+        NotificationService.create_order_notification(db, db_order, "PLACED")
+    except Exception as notif_err:
+        logger.warning(f"Could not dispatch order placed notification: {notif_err}")
+
     # Set virtual field for Pydantic serialization
     db_order.shop_name = shop.name
     return db_order
@@ -252,4 +265,197 @@ def verify_order_payment(
         )
 
     return CashfreeService.verify_order_payment(db, order)
+
+
+# ==============================================================================
+# REVIEWS ENDPOINTS
+# ==============================================================================
+
+@router.post("/orders/{order_id}/review", response_model=ReviewResponse, status_code=status.HTTP_201_CREATED)
+def submit_order_review(
+    order_id: str,
+    review_in: ReviewCreate,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Submit a star rating and feedback for a completed/delivered order.
+    Enforces student ownership, DELIVERED state, and single review per order.
+    """
+    order = db.query(Order).filter(Order.id == order_id).first()
+    if not order:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Order not found.")
+
+    # 1. Ownership check: Must be student's own order
+    if order.student_id != current_user.id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Access denied: You can only review your own orders."
+        )
+
+    # 2. Workflow state check: Must be DELIVERED
+    if order.status.upper() != "DELIVERED":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Review rejected: Only delivered orders can be reviewed."
+        )
+
+    # 3. Duplicate check: 1 review per order
+    existing_review = db.query(Review).filter(Review.order_id == order_id).first()
+    if existing_review:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Duplicate review rejected: This order has already been reviewed."
+        )
+
+    # 4. Save review securely deriving student_id and shop_id
+    db_review = Review(
+        order_id=order.id,
+        student_id=current_user.id,
+        shop_id=order.shop_id,
+        rating_shop=review_in.rating_shop,
+        rating_delivery=review_in.rating_delivery,
+        review_text_shop=review_in.review_text_shop.strip() if review_in.review_text_shop else None,
+        review_text_delivery=review_in.review_text_delivery.strip() if review_in.review_text_delivery else None
+    )
+    db.add(db_review)
+    db.flush()
+
+    # 5. Dynamically update shop average rating
+    try:
+        avg_rating = db.query(func.avg(Review.rating_shop)).filter(Review.shop_id == order.shop_id).scalar()
+        if avg_rating is not None:
+            shop = db.query(Shop).filter(Shop.id == order.shop_id).first()
+            if shop:
+                shop.rating = Decimal(str(round(avg_rating, 2)))
+    except Exception as exc:
+        logger.warning(f"Could not update shop average rating: {exc}")
+
+    db.commit()
+    db.refresh(db_review)
+    return db_review
+
+
+@router.get("/orders/{order_id}/review", response_model=Optional[ReviewResponse])
+def get_order_review(
+    order_id: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Retrieve existing review for a specific order."""
+    order = db.query(Order).filter(Order.id == order_id).first()
+    if not order:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Order not found.")
+
+    if order.student_id != current_user.id and current_user.role != "ADMIN":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Access denied: You can only view reviews for your own orders."
+        )
+
+    review = db.query(Review).filter(Review.order_id == order_id).first()
+    return review
+
+
+@router.get("/reviews", response_model=List[ReviewResponse])
+def get_my_reviews(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Retrieve all reviews submitted by the current authenticated student."""
+    return db.query(Review).filter(
+        Review.student_id == current_user.id
+    ).order_by(Review.created_at.desc()).all()
+
+
+# ==============================================================================
+# NOTIFICATIONS ENDPOINTS
+# ==============================================================================
+
+@router.get("/notifications", response_model=List[NotificationResponse])
+def get_my_notifications(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Retrieve all in-app notifications for the authenticated student."""
+    return db.query(Notification).filter(
+        Notification.user_id == current_user.id
+    ).order_by(Notification.created_at.desc()).all()
+
+
+@router.get("/notifications/unread-count", response_model=UnreadCountResponse)
+def get_unread_notifications_count(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Retrieve count of unread notifications for badge counters."""
+    count = db.query(Notification).filter(
+        Notification.user_id == current_user.id,
+        Notification.is_read == False
+    ).count()
+    return {"unread_count": count}
+
+
+@router.patch("/notifications/{notification_id}/read", response_model=NotificationResponse)
+def mark_notification_as_read(
+    notification_id: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Mark a single notification as read."""
+    notif = db.query(Notification).filter(Notification.id == notification_id).first()
+    if not notif:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Notification not found.")
+
+    if notif.user_id != current_user.id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied.")
+
+    notif.is_read = True
+    db.commit()
+    db.refresh(notif)
+    return notif
+
+
+@router.post("/notifications/read-all")
+def mark_all_notifications_as_read(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Mark all notifications for the current student as read."""
+    db.query(Notification).filter(
+        Notification.user_id == current_user.id,
+        Notification.is_read == False
+    ).update({"is_read": True})
+    db.commit()
+    return {"message": "All notifications marked as read."}
+
+
+@router.delete("/notifications")
+def clear_all_notifications(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Clear all notifications for the current student."""
+    db.query(Notification).filter(Notification.user_id == current_user.id).delete()
+    db.commit()
+    return {"message": "All notifications cleared."}
+
+
+@router.delete("/notifications/{notification_id}")
+def delete_single_notification(
+    notification_id: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Delete a single notification."""
+    notif = db.query(Notification).filter(Notification.id == notification_id).first()
+    if not notif:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Notification not found.")
+
+    if notif.user_id != current_user.id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied.")
+
+    db.delete(notif)
+    db.commit()
+    return {"message": "Notification deleted."}
 

@@ -15,7 +15,7 @@ import {
 import { useAuth } from '../../context/AuthContext';
 import apiService from '../../services/apiService';
 import { Campus, College, Block, Hostel } from '../../types';
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from '@expo/vector-icons/Ionicons';
 
 export default function RegisterScreen({ navigation }: any) {
   const { register } = useAuth();

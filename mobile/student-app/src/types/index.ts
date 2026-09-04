@@ -160,21 +160,32 @@ export interface Order {
 }
 
 export interface OrderReview {
+  id?: string;
   order_id: string;
   shop_id: string;
+  student_id?: string;
+  rating?: number;
   rating_shop: number;
+  rating_delivery?: number | null;
+  comment?: string;
   review_text_shop?: string;
+  review_text_delivery?: string | null;
   created_at: string;
+  updated_at?: string;
 }
 
 export interface AppNotification {
   id: string;
+  user_id?: string;
+  order_id?: string | null;
+  orderId?: string;
   title: string;
   message: string;
-  timestamp: string;
-  isRead: boolean;
-  type: 'ORDER' | 'SYSTEM' | 'PROMOTION';
-  orderId?: string;
+  type: string;
+  is_read?: boolean;
+  isRead?: boolean;
+  created_at?: string;
+  timestamp?: string;
 }
 
 export interface PaymentSessionResponse {

@@ -4,6 +4,7 @@ from sqlalchemy import func
 from typing import List, Optional
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal
+import logging
 
 from app.core.database import get_db
 from app.api.deps import RoleChecker
@@ -11,7 +12,9 @@ from app.models.models import User, Shop, FoodCategory, FoodItem, Order, OrderIt
 from app.schemas.shop import ShopResponse, FoodCategoryResponse, FoodItemResponse
 from app.schemas.order import OrderResponse
 from app.schemas.shopkeeper import ShopUpdate, FoodCategoryCreate, FoodCategoryUpdate, FoodItemCreate, FoodItemUpdate, OrderPatchStatus, EarningSummaryResponse
+from app.services.notification_service import NotificationService
 
+logger = logging.getLogger("campusbite.shopkeeper")
 router = APIRouter()
 require_shopkeeper = RoleChecker(["SHOPKEEPER"])
 
@@ -292,6 +295,12 @@ def update_order_status(
     order.status = target_status
     db.commit()
     db.refresh(order)
+
+    try:
+        NotificationService.create_order_notification(db, order, target_status)
+    except Exception as notif_err:
+        logger.warning(f"Could not dispatch status notification for {target_status}: {notif_err}")
+
     order.shop_name = shop.name
     return order
 

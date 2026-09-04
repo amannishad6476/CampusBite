@@ -19,6 +19,7 @@ from app.schemas.admin import (
 from app.schemas.location import CampusResponse, CollegeResponse, BlockResponse, HostelResponse
 from app.schemas.shop import ShopResponse, FoodItemResponse
 from app.schemas.order import OrderResponse
+from app.services.notification_service import NotificationService
 
 router = APIRouter()
 require_admin = RoleChecker(["ADMIN"])
@@ -483,6 +484,11 @@ def override_order_status(
     db.commit()
     db.refresh(order)
     
+    try:
+        NotificationService.create_order_notification(db, order, payload.status)
+    except Exception:
+        pass
+
     log_admin_action(
         db, current_user.id, "OVERRIDE_ORDER", "ORDER", order_id,
         f"Admin forced order status from '{old_status}' to '{payload.status}'. Reason: {payload.reason}"

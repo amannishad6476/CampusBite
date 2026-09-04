@@ -7,13 +7,16 @@ from decimal import Decimal
 import hashlib
 import random
 import string
+import logging
 
 from app.core.database import get_db
 from app.api.deps import RoleChecker
 from app.models.models import User, DeliveryPartner, Delivery, Order, Earning, Commission, Shop
 from app.schemas.delivery import DeliveryPartnerProfile, AvailabilityUpdate, VerifyOtpPayload, DeliveryEarningSummary
 from app.schemas.order import OrderResponse
+from app.services.notification_service import NotificationService
 
+logger = logging.getLogger("campusbite.delivery")
 router = APIRouter()
 require_delivery = RoleChecker(["DELIVERY_PARTNER"])
 
@@ -317,6 +320,11 @@ def start_order_delivery(
         
     db.commit()
     db.refresh(order)
+
+    try:
+        NotificationService.create_order_notification(db, order, "OUT_FOR_DELIVERY")
+    except Exception as notif_err:
+        logger.warning(f"Could not dispatch out for delivery notification: {notif_err}")
     
     shop = db.query(Shop).filter(Shop.id == order.shop_id).first()
     if shop:
@@ -428,6 +436,11 @@ def verify_delivery_otp(
 
     db.commit()
     db.refresh(order)
+
+    try:
+        NotificationService.create_order_notification(db, order, "DELIVERED")
+    except Exception as notif_err:
+        logger.warning(f"Could not dispatch delivered notification: {notif_err}")
     
     if shop:
         order.shop_name = shop.name

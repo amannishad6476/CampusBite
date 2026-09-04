@@ -11,6 +11,8 @@ import {
   User,
   PaymentSessionResponse,
   PaymentVerificationResponse,
+  OrderReview,
+  AppNotification,
 } from '../types';
 
 export const apiService = {
@@ -176,6 +178,130 @@ export const apiService = {
         `/students/orders/${orderId}/verify-payment`
       );
       return response.data;
+    } catch (error) {
+      throw new Error(parseApiError(error));
+    }
+  },
+
+  /**
+   * Submit an in-app review for a delivered order
+   */
+  async submitOrderReview(
+    orderId: string,
+    rating: number,
+    comment?: string
+  ): Promise<OrderReview> {
+    try {
+      const response = await apiClient.post<OrderReview>(
+        `/students/orders/${orderId}/review`,
+        {
+          rating,
+          comment: comment?.trim() || undefined,
+          rating_shop: rating,
+          review_text_shop: comment?.trim() || undefined,
+        }
+      );
+      return response.data;
+    } catch (error) {
+      throw new Error(parseApiError(error));
+    }
+  },
+
+  /**
+   * Retrieve existing review for a specific order (or null if not yet reviewed)
+   */
+  async getOrderReview(orderId: string): Promise<OrderReview | null> {
+    try {
+      const response = await apiClient.get<OrderReview | null>(
+        `/students/orders/${orderId}/review`
+      );
+      return response.data;
+    } catch (error) {
+      // If 404, order has not been reviewed yet
+      return null;
+    }
+  },
+
+  /**
+   * Fetch all reviews submitted by the current authenticated student
+   */
+  async getStudentReviews(): Promise<OrderReview[]> {
+    try {
+      const response = await apiClient.get<OrderReview[]>('/students/reviews');
+      return response.data;
+    } catch (error) {
+      throw new Error(parseApiError(error));
+    }
+  },
+
+  /**
+   * Retrieve all in-app notifications for the authenticated student
+   */
+  async getNotifications(): Promise<AppNotification[]> {
+    try {
+      const response = await apiClient.get<AppNotification[]>('/students/notifications');
+      return response.data;
+    } catch (error) {
+      throw new Error(parseApiError(error));
+    }
+  },
+
+  /**
+   * Retrieve unread notification count for badge counters
+   */
+  async getUnreadNotificationCount(): Promise<number> {
+    try {
+      const response = await apiClient.get<{ unread_count: number }>(
+        '/students/notifications/unread-count'
+      );
+      return response.data.unread_count;
+    } catch (error) {
+      return 0;
+    }
+  },
+
+  /**
+   * Mark a single notification as read
+   */
+  async markNotificationAsRead(notificationId: string): Promise<AppNotification> {
+    try {
+      const response = await apiClient.patch<AppNotification>(
+        `/students/notifications/${notificationId}/read`
+      );
+      return response.data;
+    } catch (error) {
+      throw new Error(parseApiError(error));
+    }
+  },
+
+  /**
+   * Mark all notifications as read
+   */
+  async markAllNotificationsAsRead(): Promise<void> {
+    try {
+      await apiClient.post('/students/notifications/read-all');
+    } catch (error) {
+      throw new Error(parseApiError(error));
+    }
+  },
+
+  /**
+   * Clear / delete all student notifications
+   */
+  async clearNotifications(): Promise<void> {
+    try {
+      await apiClient.delete('/students/notifications');
+    } catch (error) {
+      throw new Error(parseApiError(error));
+    }
+  },
+
+  /**
+   * Delete a single notification
+   */
+  async deleteNotification(notificationId: string): Promise<void> {
+    try {
+      await apiClient.delete(`/students/notifications/${notificationId}`);
     } catch (error) {
       throw new Error(parseApiError(error));
     }

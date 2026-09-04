@@ -9,10 +9,12 @@ import {
   KeyboardAvoidingView,
   Platform,
   Alert,
+  ActivityIndicator,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { Order, OrderReview } from '../../types';
 import { getStoredReviews, saveOrderReview } from '../../storage/auth';
+import { apiService } from '../../services/apiService';
 
 interface OrderReviewModalProps {
   visible: boolean;
@@ -30,15 +32,33 @@ export default function OrderReviewModal({
   const [rating, setRating] = useState(5);
   const [reviewText, setReviewText] = useState('');
   const [alreadyReviewed, setAlreadyReviewed] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
     async function checkReview() {
-      if (!order) return;
+      if (!order || !visible) return;
+      setIsLoading(true);
+      try {
+        const backendReview = await apiService.getOrderReview(order.id);
+        if (backendReview) {
+          setRating(backendReview.rating ?? backendReview.rating_shop);
+          setReviewText(backendReview.comment ?? backendReview.review_text_shop ?? '');
+          setAlreadyReviewed(true);
+          return;
+        }
+      } catch (err) {
+        // Fallback to local storage
+      } finally {
+        setIsLoading(false);
+      }
+
+      // Check local storage fallback
       const reviews = await getStoredReviews();
       const existing = reviews.find((r) => r.order_id === order.id);
       if (existing) {
-        setRating(existing.rating_shop);
-        setReviewText(existing.review_text_shop || '');
+        setRating(existing.rating ?? existing.rating_shop);
+        setReviewText(existing.comment ?? existing.review_text_shop ?? '');
         setAlreadyReviewed(true);
       } else {
         setRating(5);
@@ -52,18 +72,33 @@ export default function OrderReviewModal({
   if (!order) return null;
 
   const handleSubmit = async () => {
-    const review: OrderReview = {
-      order_id: order.id,
-      shop_id: order.shop_id,
-      rating_shop: rating,
-      review_text_shop: reviewText.trim() || undefined,
-      created_at: new Date().toISOString(),
-    };
+    if (isSubmitting) return;
+    setIsSubmitting(true);
 
-    await saveOrderReview(review);
-    Alert.alert('Review Submitted ⭐', 'Thank you for rating your campus dining experience!');
-    onSubmitted();
-    onClose();
+    try {
+      const savedReview = await apiService.submitOrderReview(
+        order.id,
+        rating,
+        reviewText.trim() || undefined
+      );
+
+      // Cache locally as well
+      await saveOrderReview({
+        order_id: order.id,
+        shop_id: order.shop_id,
+        rating_shop: rating,
+        review_text_shop: reviewText.trim() || undefined,
+        created_at: savedReview.created_at || new Date().toISOString(),
+      });
+
+      Alert.alert('Review Submitted ⭐', 'Thank you for rating your campus dining experience!');
+      onSubmitted();
+      onClose();
+    } catch (error: any) {
+      Alert.alert('Review Failed', error.message || 'Could not submit your review. Please try again.');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -128,8 +163,16 @@ export default function OrderReviewModal({
               <Text style={styles.reviewedText}>Review already submitted for this order</Text>
             </View>
           ) : (
-            <TouchableOpacity style={styles.submitBtn} onPress={handleSubmit}>
-              <Text style={styles.submitBtnText}>Submit Rating</Text>
+            <TouchableOpacity
+              style={[styles.submitBtn, isSubmitting && { opacity: 0.7 }]}
+              onPress={handleSubmit}
+              disabled={isSubmitting}
+            >
+              {isSubmitting ? (
+                <ActivityIndicator color="#FFFFFF" size="small" />
+              ) : (
+                <Text style={styles.submitBtnText}>Submit Rating</Text>
+              )}
             </TouchableOpacity>
           )}
         </View>

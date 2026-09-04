@@ -1,6 +1,6 @@
 import uuid
 from sqlalchemy import (
-    Column, String, Boolean, DateTime, Integer, Text, Numeric, ForeignKey, JSON
+    Column, String, Boolean, DateTime, Integer, Text, Numeric, ForeignKey, JSON, UniqueConstraint, Index
 )
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
@@ -262,25 +262,37 @@ class Review(Base):
     __tablename__ = "reviews"
 
     id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
-    order_id = Column(String(36), ForeignKey("orders.id", ondelete="CASCADE"), nullable=False)
-    student_id = Column(String(36), ForeignKey("students.user_id", ondelete="CASCADE"), nullable=False)
-    shop_id = Column(String(36), ForeignKey("shops.id", ondelete="CASCADE"), nullable=False)
-    rating_shop = Column(Integer, nullable=True)
+    order_id = Column(String(36), ForeignKey("orders.id", ondelete="CASCADE"), nullable=False, unique=True, index=True)
+    student_id = Column(String(36), ForeignKey("students.user_id", ondelete="CASCADE"), nullable=False, index=True)
+    shop_id = Column(String(36), ForeignKey("shops.id", ondelete="CASCADE"), nullable=False, index=True)
+    rating_shop = Column(Integer, nullable=False)
     rating_delivery = Column(Integer, nullable=True)
     review_text_shop = Column(Text, nullable=True)
     review_text_delivery = Column(Text, nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
+
+    # Relationships
+    order = relationship("Order", backref="review")
+    student = relationship("Student", backref="reviews")
+    shop = relationship("Shop", backref="reviews")
 
 
 class Notification(Base):
     __tablename__ = "notifications"
 
     id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
-    user_id = Column(String(36), ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    user_id = Column(String(36), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    order_id = Column(String(36), ForeignKey("orders.id", ondelete="SET NULL"), nullable=True, index=True)
     title = Column(String(150), nullable=False)
     message = Column(Text, nullable=False)
     is_read = Column(Boolean, default=False, nullable=False)
     type = Column(String(30), default="SYSTEM", nullable=False)  # ORDER_STATUS, PROMOTION, SYSTEM
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+    # Relationships
+    user = relationship("User", backref="notifications")
+    order = relationship("Order", backref="notifications")
 
 
 class Complaint(Base):
