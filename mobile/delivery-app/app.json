@@ -35,6 +35,12 @@
     "web": {
       "favicon": "./assets/favicon.png"
     },
-    "scheme": "campusbite-rider"
+    "scheme": "campusbite-rider",
+    "extra": {
+      "eas": {
+        "projectId": "18986238-889b-4fca-a66f-85951434ed09"
+      }
+    },
+    "owner": "amannishad"
   }
 }
