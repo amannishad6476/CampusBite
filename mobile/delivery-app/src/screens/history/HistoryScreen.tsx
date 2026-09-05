@@ -89,7 +89,7 @@ export default function HistoryScreen() {
 
         <View style={styles.cardFooter}>
           <Text style={styles.earningLabel}>Fee Earned</Text>
-          <Text style={styles.earningVal}>₹{item.delivery_fee.toFixed(2)}</Text>
+          <Text style={styles.earningVal}>₹{Number(item.delivery_fee).toFixed(2)}</Text>
         </View>
       </View>
     );

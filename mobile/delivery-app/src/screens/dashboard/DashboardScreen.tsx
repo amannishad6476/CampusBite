@@ -140,7 +140,7 @@ export default function DashboardScreen({ navigation }: any) {
       <View style={styles.metricsRow}>
         <View style={styles.metricCard}>
           <Text style={styles.metricLabel}>Today's Earnings</Text>
-          <Text style={styles.metricValue}>₹{earnings ? earnings.today_earnings.toFixed(2) : '0.00'}</Text>
+          <Text style={styles.metricValue}>₹{earnings ? Number(earnings.today_earnings).toFixed(2) : '0.00'}</Text>
         </View>
         <View style={styles.metricCard}>
           <Text style={styles.metricLabel}>Deliveries Today</Text>
@@ -167,7 +167,7 @@ export default function DashboardScreen({ navigation }: any) {
           <View style={styles.orderCard}>
             <View style={styles.cardHeader}>
               <Text style={styles.orderNo}>{item.order_number}</Text>
-              <Text style={styles.feeTag}>Earning: ₹{item.delivery_fee.toFixed(2)}</Text>
+              <Text style={styles.feeTag}>Earning: ₹{Number(item.delivery_fee).toFixed(2)}</Text>
             </View>
 
             <View style={styles.locationGroup}>

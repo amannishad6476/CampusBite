@@ -208,7 +208,7 @@ export default function ActiveDeliveryScreen({ navigation }: any) {
         {/* Order Items summary */}
         <View style={styles.cardSection}>
           <Text style={styles.sectionTitle}>Items Details</Text>
-          <Text style={styles.detailText}>{itemsCount} Item{itemsCount > 1 ? 's' : ''} • ₹{order.total_amount.toFixed(2)}</Text>
+          <Text style={styles.detailText}>{itemsCount} Item{itemsCount > 1 ? 's' : ''} • ₹{Number(order.total_amount).toFixed(2)}</Text>
           <Text style={styles.payMethodText}>Payment: {order.payment_method} ({order.payment_status})</Text>
         </View>
 
@@ -216,7 +216,7 @@ export default function ActiveDeliveryScreen({ navigation }: any) {
         <View style={styles.payoutCard}>
           <View style={styles.payoutCol}>
             <Text style={styles.payoutLabel}>Rider Earnings</Text>
-            <Text style={styles.payoutVal}>₹{order.delivery_fee.toFixed(2)}</Text>
+            <Text style={styles.payoutVal}>₹{Number(order.delivery_fee).toFixed(2)}</Text>
           </View>
           <View style={styles.divider} />
           <View style={styles.payoutCol}>

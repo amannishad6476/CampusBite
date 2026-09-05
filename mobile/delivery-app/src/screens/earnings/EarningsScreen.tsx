@@ -66,7 +66,7 @@ export default function EarningsScreen() {
         <View style={styles.walletCard}>
           <Ionicons name="wallet-outline" size={32} color="#ffffff" />
           <Text style={styles.walletLabel}>All-Time Delivery Payouts</Text>
-          <Text style={styles.walletValue}>₹{earnings ? earnings.net_earnings.toFixed(2) : '0.00'}</Text>
+          <Text style={styles.walletValue}>₹{earnings ? Number(earnings.net_earnings).toFixed(2) : '0.00'}</Text>
           
           <View style={styles.metaRow}>
             <View style={styles.metaCol}>
@@ -89,7 +89,7 @@ export default function EarningsScreen() {
           </View>
           <View style={styles.rowDetails}>
             <Text style={styles.rowLabel}>Today's Earnings</Text>
-            <Text style={styles.rowValue}>₹{earnings ? earnings.today_earnings.toFixed(2) : '0.00'}</Text>
+            <Text style={styles.rowValue}>₹{earnings ? Number(earnings.today_earnings).toFixed(2) : '0.00'}</Text>
           </View>
         </View>
 
@@ -99,7 +99,7 @@ export default function EarningsScreen() {
           </View>
           <View style={styles.rowDetails}>
             <Text style={styles.rowLabel}>Weekly Earnings (Last 7 Days)</Text>
-            <Text style={styles.rowValue}>₹{earnings ? earnings.weekly_earnings.toFixed(2) : '0.00'}</Text>
+            <Text style={styles.rowValue}>₹{earnings ? Number(earnings.weekly_earnings).toFixed(2) : '0.00'}</Text>
           </View>
         </View>
 
@@ -109,7 +109,7 @@ export default function EarningsScreen() {
           </View>
           <View style={styles.rowDetails}>
             <Text style={styles.rowLabel}>Monthly Earnings (Last 30 Days)</Text>
-            <Text style={styles.rowValue}>₹{earnings ? earnings.monthly_earnings.toFixed(2) : '0.00'}</Text>
+            <Text style={styles.rowValue}>₹{earnings ? Number(earnings.monthly_earnings).toFixed(2) : '0.00'}</Text>
           </View>
         </View>
 
