@@ -65,3 +65,43 @@ export interface DeliveryEarningSummary {
   delivery_fee_earned: number;
   net_earnings: number;
 }
+
+export interface EarningHistoryItem {
+  id: string;
+  order_id?: string | null;
+  order_number?: string | null;
+  shop_name?: string | null;
+  amount: number;
+  type: string;
+  status: string;
+  created_at?: string | null;
+}
+
+export interface EarningHistoryResponse {
+  total_records: number;
+  items: EarningHistoryItem[];
+}
+
+export interface AppNotification {
+  id: string;
+  user_id: string;
+  order_id?: string | null;
+  title: string;
+  message: string;
+  is_read: boolean;
+  type: string;
+  created_at: string;
+}
+
+export interface LocationUpdatePayload {
+  latitude: number;
+  longitude: number;
+}
+
+export interface ProfileUpdatePayload {
+  name?: string;
+  phone?: string;
+  vehicle_type?: string;
+  vehicle_number?: string;
+}
+

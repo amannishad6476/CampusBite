@@ -9,11 +9,12 @@ import {
   RefreshControl
 } from 'react-native';
 import apiService from '../../services/apiService';
-import { DeliveryEarningSummary } from '../../types';
+import { DeliveryEarningSummary, EarningHistoryItem } from '../../types';
 import { Ionicons } from '@expo/vector-icons';
 
 export default function EarningsScreen() {
   const [earnings, setEarnings] = useState<DeliveryEarningSummary | null>(null);
+  const [historyItems, setHistoryItems] = useState<EarningHistoryItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -21,6 +22,13 @@ export default function EarningsScreen() {
     try {
       const data = await apiService.getEarnings();
       setEarnings(data);
+
+      try {
+        const hist = await apiService.getEarningsHistory(1, 20);
+        setHistoryItems(hist.items || []);
+      } catch (histErr) {
+        console.warn('Could not load detailed earnings history:', histErr);
+      }
     } catch (e) {
       console.error('Failed to load rider earnings:', e);
     } finally {
@@ -32,6 +40,7 @@ export default function EarningsScreen() {
   useEffect(() => {
     loadEarnings();
   }, []);
+
 
   const onRefresh = () => {
     setRefreshing(true);
@@ -104,6 +113,39 @@ export default function EarningsScreen() {
           </View>
         </View>
 
+        {/* Recent Payouts List */}
+        <Text style={styles.sectionTitle}>Recent Payouts</Text>
+        {historyItems.length === 0 ? (
+          <View style={styles.emptyHistoryBox}>
+            <Text style={styles.emptyHistoryText}>No delivery payouts recorded yet.</Text>
+          </View>
+        ) : (
+          historyItems.map((item) => (
+            <View key={item.id} style={styles.historyRow}>
+              <View style={styles.historyLeft}>
+                <Text style={styles.historyOrder}>{item.order_number || 'Delivery Trip'}</Text>
+                {item.shop_name && <Text style={styles.historyShop}>{item.shop_name}</Text>}
+                <Text style={styles.historyDate}>
+                  {item.created_at
+                    ? new Date(item.created_at).toLocaleDateString([], {
+                        month: 'short',
+                        day: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit',
+                      })
+                    : ''}
+                </Text>
+              </View>
+              <View style={styles.historyRight}>
+                <Text style={styles.historyAmount}>+₹{Number(item.amount).toFixed(2)}</Text>
+                <View style={styles.statusPill}>
+                  <Text style={styles.statusPillText}>{item.status}</Text>
+                </View>
+              </View>
+            </View>
+          ))
+        )}
+
         {/* Info card */}
         <View style={styles.infoBox}>
           <Ionicons name="information-circle-outline" size={20} color="#757575" style={{ marginRight: 8 }} />
@@ -114,6 +156,7 @@ export default function EarningsScreen() {
       </ScrollView>
     </SafeAreaView>
   );
+
 }
 
 const styles = StyleSheet.create({
@@ -238,4 +281,61 @@ const styles = StyleSheet.create({
     flex: 1,
     lineHeight: 16,
   },
+  emptyHistoryBox: {
+    paddingVertical: 16,
+    alignItems: 'center',
+  },
+  emptyHistoryText: {
+    fontSize: 13,
+    color: '#9E9E9E',
+    fontStyle: 'italic',
+  },
+  historyRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F5F5F5',
+  },
+  historyLeft: {
+    flex: 1,
+  },
+  historyOrder: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#212121',
+  },
+  historyShop: {
+    fontSize: 12,
+    color: '#616161',
+    marginTop: 2,
+  },
+  historyDate: {
+    fontSize: 11,
+    color: '#9E9E9E',
+    marginTop: 2,
+  },
+  historyRight: {
+    alignItems: 'flex-end',
+  },
+  historyAmount: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#2E7D32',
+  },
+  statusPill: {
+    backgroundColor: '#E8F5E9',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+    marginTop: 4,
+  },
+  statusPillText: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: '#2E7D32',
+    textTransform: 'uppercase',
+  },
 });
+

@@ -11,10 +11,22 @@ import logging
 
 from app.core.database import get_db
 from app.api.deps import RoleChecker
-from app.models.models import User, DeliveryPartner, Delivery, Order, Earning, Commission, Shop
-from app.schemas.delivery import DeliveryPartnerProfile, AvailabilityUpdate, VerifyOtpPayload, DeliveryEarningSummary
+from app.models.models import User, DeliveryPartner, Delivery, Order, Earning, Commission, Shop, Notification
+from app.schemas.delivery import (
+    DeliveryPartnerProfile,
+    AvailabilityUpdate,
+    VerifyOtpPayload,
+    DeliveryEarningSummary,
+    LocationUpdatePayload,
+    DeliveryPartnerProfileUpdate,
+    UnassignPayload,
+    EarningHistoryResponse,
+    EarningHistoryItem,
+)
+from app.schemas.notification import NotificationResponse, UnreadCountResponse
 from app.schemas.order import OrderResponse
 from app.services.notification_service import NotificationService
+
 
 logger = logging.getLogger("campusbite.delivery")
 router = APIRouter()
@@ -90,6 +102,64 @@ def update_availability(
         is_active=partner.is_active,
         status=status_str
     )
+
+
+@router.patch("/me/location")
+def update_location(
+    payload: LocationUpdatePayload,
+    current_user: User = Depends(require_delivery),
+    db: Session = Depends(get_db)
+):
+    """Update driver's live GPS coordinates."""
+    partner = get_partner_profile_or_raise(current_user.id, db)
+    partner.current_lat = payload.latitude
+    partner.current_lng = payload.longitude
+    db.commit()
+    return {
+        "status": "success",
+        "current_lat": float(partner.current_lat),
+        "current_lng": float(partner.current_lng)
+    }
+
+
+@router.put("/me/profile", response_model=DeliveryPartnerProfile)
+def update_profile(
+    payload: DeliveryPartnerProfileUpdate,
+    current_user: User = Depends(require_delivery),
+    db: Session = Depends(get_db)
+):
+    """Update delivery partner profile information."""
+    partner = get_partner_profile_or_raise(current_user.id, db)
+    if payload.name:
+        current_user.name = payload.name.strip()
+    if payload.phone:
+        clean_phone = payload.phone.strip()
+        existing = db.query(User).filter(User.phone == clean_phone, User.id != current_user.id).first()
+        if existing:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Phone number already in use.")
+        current_user.phone = clean_phone
+    if payload.vehicle_type:
+        partner.vehicle_type = payload.vehicle_type.strip()
+    if payload.vehicle_number is not None:
+        partner.vehicle_number = payload.vehicle_number.strip() if payload.vehicle_number else None
+    
+    db.commit()
+    db.refresh(partner)
+    db.refresh(current_user)
+    
+    status_str = get_partner_status(partner, db)
+    return DeliveryPartnerProfile(
+        user_id=partner.user_id,
+        name=current_user.name,
+        email=current_user.email,
+        phone=current_user.phone,
+        vehicle_type=partner.vehicle_type,
+        vehicle_number=partner.vehicle_number,
+        rating=partner.rating,
+        is_active=partner.is_active,
+        status=status_str
+    )
+
 
 
 # 2. Orders Search
@@ -171,6 +241,11 @@ def accept_delivery(
     db.commit()
     db.refresh(order)
     
+    try:
+        NotificationService.create_rider_assignment_notification(db, order, current_user.id)
+    except Exception as e:
+        logger.warning(f"Could not dispatch rider assignment notification: {e}")
+    
     shop = db.query(Shop).filter(Shop.id == order.shop_id).first()
     if shop:
         order.shop_name = shop.name
@@ -243,7 +318,54 @@ def get_order_details(
     return order
 
 
+@router.post("/orders/{order_id}/unassign")
+def unassign_order(
+    order_id: str,
+    payload: Optional[UnassignPayload] = None,
+    current_user: User = Depends(require_delivery),
+    db: Session = Depends(get_db)
+):
+    """Emergency drop / unassign before pickup, returning order to the available pool."""
+    order = db.query(Order).filter(
+        Order.id == order_id,
+        Order.delivery_partner_id == current_user.id
+    ).first()
+    if not order:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Order not found or not assigned to you."
+        )
+
+    if order.status != "ASSIGNED":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Cannot unassign order in '{order.status}' state. Only orders awaiting pickup can be unassigned."
+        )
+
+    # Revert order back to READY_FOR_PICKUP pool
+    order.delivery_partner_id = None
+    order.status = "READY_FOR_PICKUP"
+
+    # Mark delivery tracking as FAILED
+    delivery = db.query(Delivery).filter(
+        Delivery.order_id == order_id,
+        Delivery.delivery_partner_id == current_user.id
+    ).first()
+    if delivery:
+        delivery.status = "FAILED"
+
+    db.commit()
+    db.refresh(order)
+    return {
+        "status": "unassigned",
+        "order_id": order.id,
+        "order_status": order.status,
+        "message": "Order successfully released back to the pickup pool."
+    }
+
+
 # 4. Status Progress Workflows
+
 @router.post("/orders/{order_id}/pickup", response_model=OrderResponse)
 def mark_order_picked_up(
     order_id: str,
@@ -501,3 +623,108 @@ def get_my_earnings(
         delivery_fee_earned=net_earnings,
         net_earnings=net_earnings
     )
+
+
+@router.get("/earnings/history", response_model=EarningHistoryResponse)
+def get_earnings_history(
+    page: int = 1,
+    limit: int = 20,
+    current_user: User = Depends(require_delivery),
+    db: Session = Depends(get_db)
+):
+    """Retrieve detailed itemized list of driver earnings."""
+    offset = max(0, (page - 1) * limit)
+    query = db.query(Earning).filter(
+        Earning.user_id == current_user.id,
+        Earning.type == "DELIVERY_PAY"
+    ).order_by(Earning.created_at.desc())
+
+    total = query.count()
+    earnings = query.offset(offset).limit(limit).all()
+
+    items = []
+    for e in earnings:
+        order_num = None
+        s_name = None
+        if e.order_id:
+            ord_row = db.query(Order).filter(Order.id == e.order_id).first()
+            if ord_row:
+                order_num = ord_row.order_number
+                sh = db.query(Shop).filter(Shop.id == ord_row.shop_id).first()
+                if sh:
+                    s_name = sh.name
+
+        items.append(EarningHistoryItem(
+            id=e.id,
+            order_id=e.order_id,
+            order_number=order_num,
+            shop_name=s_name,
+            amount=e.amount,
+            type=e.type,
+            status=e.status,
+            created_at=e.created_at.isoformat() if e.created_at else None
+        ))
+
+    return EarningHistoryResponse(
+        total_records=total,
+        items=items
+    )
+
+
+# 6. Notifications
+@router.get("/notifications", response_model=List[NotificationResponse])
+def get_rider_notifications(
+    current_user: User = Depends(require_delivery),
+    db: Session = Depends(get_db)
+):
+    """Retrieve in-app notifications for the authenticated rider."""
+    return db.query(Notification).filter(
+        Notification.user_id == current_user.id
+    ).order_by(Notification.created_at.desc()).all()
+
+
+@router.get("/notifications/unread-count", response_model=UnreadCountResponse)
+def get_rider_unread_count(
+    current_user: User = Depends(require_delivery),
+    db: Session = Depends(get_db)
+):
+    """Get count of unread notifications for badge counters."""
+    cnt = db.query(Notification).filter(
+        Notification.user_id == current_user.id,
+        Notification.is_read == False
+    ).count()
+    return UnreadCountResponse(unread_count=cnt)
+
+
+@router.patch("/notifications/{notification_id}/read", response_model=NotificationResponse)
+def mark_rider_notification_read(
+    notification_id: str,
+    current_user: User = Depends(require_delivery),
+    db: Session = Depends(get_db)
+):
+    """Mark a single notification as read."""
+    notif = db.query(Notification).filter(
+        Notification.id == notification_id,
+        Notification.user_id == current_user.id
+    ).first()
+    if not notif:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Notification not found.")
+    notif.is_read = True
+    db.commit()
+    db.refresh(notif)
+    return notif
+
+
+@router.post("/notifications/read-all")
+def mark_all_rider_notifications_read(
+    current_user: User = Depends(require_delivery),
+    db: Session = Depends(get_db)
+):
+    """Mark all notifications for the current rider as read."""
+    db.query(Notification).filter(
+        Notification.user_id == current_user.id,
+        Notification.is_read == False
+    ).update({"is_read": True}, synchronize_session=False)
+    db.commit()
+    return {"status": "success", "message": "All notifications marked as read."}
+

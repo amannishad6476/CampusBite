@@ -385,3 +385,131 @@ def test_delivery_otp_expiration(client, db, test_location, delivery_partner_a):
     )
     assert res.status_code == 400
     assert "Verification code has expired" in res.json()["detail"]
+
+
+def test_rider_location_update(client, delivery_partner_a):
+    """Test updating live GPS coordinates."""
+    res = client.patch(
+        "/api/v1/delivery/me/location",
+        json={"latitude": 28.5450, "longitude": 77.1926},
+        headers=delivery_partner_a["headers"]
+    )
+    assert res.status_code == 200
+    data = res.json()
+    assert data["status"] == "success"
+    assert round(data["current_lat"], 4) == 28.5450
+    assert round(data["current_lng"], 4) == 77.1926
+
+
+def test_rider_profile_update(client, delivery_partner_a):
+    """Test updating profile information."""
+    res = client.put(
+        "/api/v1/delivery/me/profile",
+        json={"vehicle_type": "Electric Scooter", "vehicle_number": "UP32-EV-999"},
+        headers=delivery_partner_a["headers"]
+    )
+    assert res.status_code == 200
+    data = res.json()
+    assert data["vehicle_type"] == "Electric Scooter"
+    assert data["vehicle_number"] == "UP32-EV-999"
+
+
+def test_rider_unassign_order(client, db, test_location, delivery_partner_a):
+    """Test emergency unassigning an order before pickup."""
+    shop = Shop(
+        name="Unassign Canteen",
+        shopkeeper_id="sk-uuid-unassign",
+        campus_id=test_location["campus_id"],
+        is_open=True,
+        rating=Decimal("4.0")
+    )
+    db.add(shop)
+    db.flush()
+
+    order = Order(
+        order_number="CB-TEST-UNASSIGN",
+        student_id="student-uuid-unassign",
+        shop_id=shop.id,
+        status="READY_FOR_PICKUP",
+        subtotal=Decimal("150.00"),
+        delivery_fee=Decimal("20.00"),
+        tax=Decimal("2.50"),
+        total_amount=Decimal("172.50"),
+        payment_status="PENDING",
+        payment_method="COD",
+        delivery_address={"campus_name": "BBD Campus"},
+        otp="4444"
+    )
+    db.add(order)
+    db.commit()
+
+    headers = delivery_partner_a["headers"]
+    # 1. Accept order
+    res_accept = client.post(f"/api/v1/delivery/orders/{order.id}/accept", headers=headers)
+    assert res_accept.status_code == 200
+    assert res_accept.json()["status"] == "ASSIGNED"
+
+    # 2. Unassign order
+    res_unassign = client.post(
+        f"/api/v1/delivery/orders/{order.id}/unassign",
+        json={"reason": "Flat tire on delivery bicycle"},
+        headers=headers
+    )
+    assert res_unassign.status_code == 200
+    assert res_unassign.json()["status"] == "unassigned"
+    assert res_unassign.json()["order_status"] == "READY_FOR_PICKUP"
+
+    # 3. Verify order is back in pool
+    db.refresh(order)
+    assert order.status == "READY_FOR_PICKUP"
+    assert order.delivery_partner_id is None
+
+
+def test_rider_earnings_history(client, db, test_location, delivery_partner_a):
+    """Test itemized earnings history endpoint."""
+    res = client.get("/api/v1/delivery/earnings/history", headers=delivery_partner_a["headers"])
+    assert res.status_code == 200
+    data = res.json()
+    assert "total_records" in data
+    assert "items" in data
+    assert isinstance(data["items"], list)
+
+
+def test_rider_notifications_flow(client, db, delivery_partner_a):
+    """Test rider notifications list, unread count, mark read, and mark all read."""
+    headers = delivery_partner_a["headers"]
+    user_id = delivery_partner_a["user_id"]
+
+    # Insert a test notification for the rider
+    from app.models.models import Notification
+    notif = Notification(
+        user_id=user_id,
+        title="Test Rider Notification",
+        message="Order ready for test",
+        type="TEST",
+        is_read=False
+    )
+    db.add(notif)
+    db.commit()
+    db.refresh(notif)
+
+    # 1. Check unread count
+    res_cnt = client.get("/api/v1/delivery/notifications/unread-count", headers=headers)
+    assert res_cnt.status_code == 200
+    assert res_cnt.json()["unread_count"] >= 1
+
+    # 2. List notifications
+    res_list = client.get("/api/v1/delivery/notifications", headers=headers)
+    assert res_list.status_code == 200
+    assert len(res_list.json()) >= 1
+
+    # 3. Mark single notification read
+    res_read = client.patch(f"/api/v1/delivery/notifications/{notif.id}/read", headers=headers)
+    assert res_read.status_code == 200
+    assert res_read.json()["is_read"] is True
+
+    # 4. Mark all read
+    res_all = client.post("/api/v1/delivery/notifications/read-all", headers=headers)
+    assert res_all.status_code == 200
+    assert res_all.json()["status"] == "success"
+

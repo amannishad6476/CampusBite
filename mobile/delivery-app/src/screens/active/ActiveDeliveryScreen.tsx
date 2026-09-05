@@ -105,6 +105,35 @@ export default function ActiveDeliveryScreen({ navigation }: any) {
     }
   };
 
+  const handleUnassign = () => {
+    if (!order) return;
+    Alert.alert(
+      'Unassign Order',
+      'Are you experiencing an issue? This will release the order back to the pickup pool so another rider can deliver it.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Release Order',
+          style: 'destructive',
+          onPress: async () => {
+            setActionLoading(true);
+            try {
+              await apiService.unassignOrder(order.id, 'Rider requested emergency unassign before pickup');
+              Alert.alert('Order Released', 'The order has been returned to the available pickup pool.');
+              setOrder(null);
+              loadActiveOrder();
+            } catch (e: any) {
+              Alert.alert('Error', e.response?.data?.detail || 'Failed to unassign order.');
+            } finally {
+              setActionLoading(false);
+            }
+          },
+        },
+      ]
+    );
+  };
+
+
   if (loading && !refreshing) {
     return (
       <View style={styles.centerContainer}>
@@ -203,10 +232,16 @@ export default function ActiveDeliveryScreen({ navigation }: any) {
           ) : (
             <>
               {order.status === 'ASSIGNED' && (
-                <TouchableOpacity style={styles.primaryBtn} onPress={handlePickup}>
-                  <Ionicons name="bag-handle-outline" size={20} color="#ffffff" style={{ marginRight: 8 }} />
-                  <Text style={styles.btnText}>Mark Picked Up at Canteen</Text>
-                </TouchableOpacity>
+                <>
+                  <TouchableOpacity style={styles.primaryBtn} onPress={handlePickup}>
+                    <Ionicons name="bag-handle-outline" size={20} color="#ffffff" style={{ marginRight: 8 }} />
+                    <Text style={styles.btnText}>Mark Picked Up at Canteen</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity style={styles.unassignBtn} onPress={handleUnassign}>
+                    <Ionicons name="close-circle-outline" size={18} color="#D32F2F" style={{ marginRight: 6 }} />
+                    <Text style={styles.unassignBtnText}>Release / Unassign Order</Text>
+                  </TouchableOpacity>
+                </>
               )}
 
               {order.status === 'PICKED_UP' && (
@@ -232,15 +267,15 @@ export default function ActiveDeliveryScreen({ navigation }: any) {
                     <Text style={styles.btnText}>Verify & Complete Delivery</Text>
                   </TouchableOpacity>
 
-                  {/* Dev debug block */}
-                  <View style={styles.debugAlert}>
-                    <Ionicons name="bug-outline" size={16} color="#e65100" />
-                    <Text style={styles.debugText}>
-                      [Sandbox Debug: The OTP code generated for this checkout is {order.otp}]
+                  <View style={styles.otpNoticeBox}>
+                    <Ionicons name="shield-checkmark-outline" size={18} color="#2E7D32" style={{ marginRight: 6 }} />
+                    <Text style={styles.otpNoticeText}>
+                      Ask the student for their 4-digit Delivery OTP shown in their app to finalize delivery.
                     </Text>
                   </View>
                 </View>
               )}
+
             </>
           )}
         </View>
@@ -475,4 +510,37 @@ const styles = StyleSheet.create({
     marginLeft: 8,
     flex: 1,
   },
+  unassignBtn: {
+    marginTop: 12,
+    paddingVertical: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#FFCDD2',
+    backgroundColor: '#FFEBEE',
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  unassignBtnText: {
+    color: '#D32F2F',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  otpNoticeBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#E8F5E9',
+    borderRadius: 8,
+    padding: 12,
+    marginTop: 14,
+    borderWidth: 1,
+    borderColor: '#C8E6C9',
+  },
+  otpNoticeText: {
+    color: '#2E7D32',
+    fontSize: 12,
+    flex: 1,
+    lineHeight: 16,
+  },
 });
+

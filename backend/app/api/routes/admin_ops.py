@@ -866,6 +866,7 @@ def assign_order_rider(
     
     try:
         NotificationService.create_order_notification(db, order, "ASSIGNED")
+        NotificationService.create_rider_assignment_notification(db, order, payload.delivery_partner_id)
     except Exception:
         pass
         

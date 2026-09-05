@@ -144,6 +144,41 @@ class NotificationService:
         return notif
 
     @staticmethod
+    def create_rider_assignment_notification(
+        db: Session,
+        order: Order,
+        rider_id: str
+    ) -> Optional[Notification]:
+        """
+        Creates a persistent in-app notification for the delivery partner when assigned an order.
+        """
+        title = "New Delivery Assigned! 🛵"
+        message = f"You have been assigned order #{order.order_number}. Head to canteen for pickup."
+
+        existing = db.query(Notification).filter(
+            Notification.user_id == rider_id,
+            Notification.order_id == order.id,
+            Notification.type == "ORDER_ASSIGNED"
+        ).first()
+
+        if existing:
+            return existing
+
+        notif = Notification(
+            user_id=rider_id,
+            order_id=order.id,
+            title=title,
+            message=message,
+            type="ORDER_ASSIGNED",
+            is_read=False
+        )
+        db.add(notif)
+        db.commit()
+        db.refresh(notif)
+        logger.info(f"Rider notification created for user {rider_id} on order {order.order_number}")
+        return notif
+
+    @staticmethod
     def notify_student(user_id: str, order_number: str, event: Any) -> bool:
         """Mock helper for legacy tests / notification dispatch simulation."""
         logger.info(f"Notify student {user_id} for order {order_number} event {event}")
@@ -160,3 +195,4 @@ class NotificationService:
         """Mock helper for driver notification dispatch simulation."""
         logger.info(f"Notify driver {driver_id} for order {order_number} at {pickup_location}")
         return True
+

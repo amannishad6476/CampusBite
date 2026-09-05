@@ -14,6 +14,7 @@ import ActiveDeliveryScreen from '../screens/active/ActiveDeliveryScreen';
 import HistoryScreen from '../screens/history/HistoryScreen';
 import EarningsScreen from '../screens/earnings/EarningsScreen';
 import ProfileScreen from '../screens/profile/ProfileScreen';
+import NotificationsScreen from '../screens/notifications/NotificationsScreen';
 
 const Stack = createStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -51,7 +52,20 @@ function MainTabNavigator() {
       <Tab.Screen
         name="Dashboard"
         component={DashboardScreen}
-        options={{ tabBarLabel: 'Dashboard', headerShown: true, title: 'Rider Dashboard' }}
+        options={({ navigation }) => ({
+          tabBarLabel: 'Dashboard',
+          headerShown: true,
+          title: 'Rider Dashboard',
+          headerRight: () => (
+            <Ionicons
+              name="notifications-outline"
+              size={24}
+              color="#4CAF50"
+              style={{ marginRight: 16 }}
+              onPress={() => navigation.navigate('Notifications')}
+            />
+          ),
+        })}
       />
       <Tab.Screen
         name="Active"
@@ -89,8 +103,21 @@ export default function AppNavigator() {
       {user === null ? (
         <Stack.Screen name="Login" component={LoginScreen} />
       ) : (
-        <Stack.Screen name="Main" component={MainTabNavigator} />
+        <>
+          <Stack.Screen name="Main" component={MainTabNavigator} />
+          <Stack.Screen
+            name="Notifications"
+            component={NotificationsScreen}
+            options={{
+              headerShown: true,
+              title: 'Notifications',
+              headerTintColor: '#4CAF50',
+              headerTitleStyle: { color: '#212121' },
+            }}
+          />
+        </>
       )}
     </Stack.Navigator>
   );
 }
+
