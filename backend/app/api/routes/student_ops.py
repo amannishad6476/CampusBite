@@ -75,6 +75,18 @@ def place_order(
             detail="Canteen not found."
         )
 
+    if not shop.is_open:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="This canteen is currently closed. Please try again when it is open."
+        )
+
+    if shop.status not in ["ACTIVE", "APPROVED"]:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="This canteen is currently unavailable. Please try again later."
+        )
+
     calculated_subtotal = Decimal("0.00")
     order_items_cache = []
 
